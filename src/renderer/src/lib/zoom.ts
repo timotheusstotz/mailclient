@@ -3,8 +3,9 @@
  * nicht die Oberfläche ringsum. Listen, Ordner und Leisten behalten ihre
  * Groesse, damit sich nur das aendert, was man gerade liest.
  *
- * Der Griff muss an jedem Dokument einzeln haengen: der Nachrichtentext steckt
- * in einem eigenen Dokument, dessen Radereignisse das Fenster nie erreichen.
+ * Das Rad haengt am Fenster. Der Nachrichtentext steckt zwar in einem eigenen
+ * Dokument, nimmt bei gedrueckter Strg-Taste aber keine Maus an - so kommt die
+ * Geste immer hier an. Die Tasten haengen an beiden Dokumenten.
  */
 
 /** Radweg fuer eine Stufe; eine Rastung des Mausrades liefert etwa 100. */
@@ -30,6 +31,29 @@ export function nextZoom(current: number, step: ZoomStep): number {
 export function clampZoom(value: number): number {
   if (!Number.isFinite(value)) return 1
   return Math.max(ZOOM_STOPS[0], Math.min(ZOOM_STOPS[ZOOM_STOPS.length - 1], value))
+}
+
+/**
+ * Meldet, ob Strg gerade gedrueckt ist. Haengt wie die Tasten an jedem
+ * Dokument, denn nur das mit dem Fokus sieht sie. Verliert das Fenster den
+ * Fokus, gilt Strg als losgelassen - das Loslassen kaeme sonst nie an.
+ */
+export function attachCtrlWatch(target: EventTarget, onChange: (held: boolean) => void): () => void {
+  const onDown = (event: Event): void => {
+    if ((event as KeyboardEvent).key === 'Control') onChange(true)
+  }
+  const onUp = (event: Event): void => {
+    if ((event as KeyboardEvent).key === 'Control') onChange(false)
+  }
+  const onBlur = (): void => onChange(false)
+  target.addEventListener('keydown', onDown)
+  target.addEventListener('keyup', onUp)
+  target.addEventListener('blur', onBlur)
+  return () => {
+    target.removeEventListener('keydown', onDown)
+    target.removeEventListener('keyup', onUp)
+    target.removeEventListener('blur', onBlur)
+  }
 }
 
 export function attachZoomWheel(target: EventTarget, onStep: (step: ZoomStep) => void): () => void {

@@ -19,8 +19,9 @@ import { FolderList } from './components/FolderList'
 import { MessageList } from './components/MessageList'
 import { Reader } from './components/Reader'
 import { SettingsDialog } from './components/SettingsDialog'
+import { Splitter } from './components/Splitter'
 import { TimeDialog } from './components/TimeDialog'
-import { attachZoomKeys, clampZoom, nextZoom, type ZoomStep } from './lib/zoom'
+import { attachZoomKeys, attachZoomWheel, clampZoom, nextZoom, type ZoomStep } from './lib/zoom'
 import {
   IconArchive,
   IconClock,
@@ -192,6 +193,7 @@ export default function App() {
     [foldersByAccount]
   )
 
+  const appRef = useRef<HTMLDivElement>(null)
   const [readerZoom, setReaderZoom] = useState(1)
   const zoomSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -204,9 +206,14 @@ export default function App() {
     Einstellungen, damit ein Raddreh sofort sichtbar wird; gespeichert wird sie
     erst, wenn das Drehen aufhoert - sonst schriebe jede Rastung auf die Platte.
   */
+  // Nur beim Start uebernehmen: die gespeicherte Stufe kommt verzoegert zurueck
+  // und setzte sonst eine inzwischen weitergedrehte Vergroesserung zurueck.
+  const zoomLoaded = useRef(false)
   useEffect(() => {
-    if (settings) setReaderZoom(clampZoom(settings.readerZoom))
-  }, [settings?.readerZoom])
+    if (!settings || zoomLoaded.current) return
+    zoomLoaded.current = true
+    setReaderZoom(clampZoom(settings.readerZoom))
+  }, [settings])
 
   const stepReaderZoom = useCallback((step: ZoomStep) => {
     setReaderZoom((current) => {
@@ -224,6 +231,8 @@ export default function App() {
   ])
 
   useEffect(() => attachZoomKeys(window, stepReaderZoom), [stepReaderZoom])
+  // Strg+Mausrad vergroessert die Mail, egal wo der Zeiger steht.
+  useEffect(() => attachZoomWheel(window, stepReaderZoom), [stepReaderZoom])
 
   // Theme auf das Wurzelelement schreiben; "system" folgt der Systemeinstellung.
   useEffect(() => {
@@ -1022,7 +1031,18 @@ export default function App() {
 
   return (
     <>
-      <div className="app" data-preview={settings.previewPosition} data-folders="shown">
+      <div
+        className="app"
+        ref={appRef}
+        data-preview={settings.previewPosition}
+        data-folders="shown"
+        style={
+          {
+            '--list-w': `${settings.listWidth}px`,
+            ...(settings.listHeight ? { '--list-h': `${settings.listHeight}px` } : {})
+          } as React.CSSProperties
+        }
+      >
         <AccountRail
           accounts={accounts}
           statusById={statusById}
@@ -1076,6 +1096,41 @@ export default function App() {
             void markSeen(members, members.some((m) => !m.flags.includes('\\Seen')))
           }}
           onRefresh={() => void window.api.sync.refresh()}
+          resizer={
+            <Splitter
+              axis={settings.previewPosition === 'bottom' ? 'y' : 'x'}
+              min={settings.previewPosition === 'bottom' ? 140 : 280}
+              max={() => {
+                const app = appRef.current
+                const list = app?.querySelector('.list')?.getBoundingClientRect()
+                if (!app || !list) return 800
+                // Dem Lesebereich bleibt immer genug Platz zum Lesen.
+                return settings.previewPosition === 'bottom'
+                  ? app.clientHeight - 200
+                  : app.getBoundingClientRect().right - list.left - 420
+              }}
+              onLive={(size) =>
+                appRef.current?.style.setProperty(
+                  settings.previewPosition === 'bottom' ? '--list-h' : '--list-w',
+                  `${size}px`
+                )
+              }
+              onCommit={(size) =>
+                void workspace.updateSettings(
+                  settings.previewPosition === 'bottom' ? { listHeight: size } : { listWidth: size }
+                )
+              }
+              onReset={() => {
+                if (settings.previewPosition === 'bottom') {
+                  appRef.current?.style.removeProperty('--list-h')
+                  void workspace.updateSettings({ listHeight: 0 })
+                } else {
+                  appRef.current?.style.setProperty('--list-w', '384px')
+                  void workspace.updateSettings({ listWidth: 384 })
+                }
+              }}
+            />
+          }
         />
 
         {selectedIds.size > 1 ? (

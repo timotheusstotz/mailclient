@@ -177,6 +177,10 @@ export interface Settings {
   threadView: boolean
   /** Textbausteine fuer den Verfassen-Dialog */
   templates: MailTemplate[]
+  /** Breite der Nachrichtenliste in px, wenn der Lesebereich rechts steht */
+  listWidth: number
+  /** Hoehe der Liste in px, wenn der Lesebereich unten steht; 0 = halbe-halbe */
+  listHeight: number
 }
 
 export interface MailTemplate {

@@ -1,4 +1,4 @@
-/*
+﻿/*
   Ende-zu-Ende-Test gegen einen lokalen Mailserver (GreenMail in Docker).
 
     docker run -d --name mailclient-greenmail -p 3465:3465 -p 3993:3993 -p 8080:8080 \
@@ -51,7 +51,20 @@ async function check(name, fn) {
 
 /** Bildschirmfoto fuer die Durchsicht. Scheitert es (unsichtbares Fenster), ist das kein Testfehler. */
 async function shot(name) {
-  await page?.screenshot({ path: path.join(shots, `${name}.png`), timeout: 5000 }).catch(() => {})
+  // Ueber Electron selbst: Playwrights Bildschirmfoto bleibt am unsichtbaren Fenster haengen.
+  try {
+    const png = await Promise.race([
+      app.evaluate(async ({ BrowserWindow }) => {
+        const win = BrowserWindow.getAllWindows()[0]
+        const image = await win.webContents.capturePage(undefined, { stayHidden: true })
+        return image.toPNG().toString('base64')
+      }),
+      sleep(5000).then(() => null)
+    ])
+    if (png) fs.writeFileSync(path.join(shots, `${name}.png`), Buffer.from(png, 'base64'))
+  } catch {
+    /* ein fehlendes Bild ist kein Testfehler */
+  }
 }
 
 /** Zurueck in den Sammelposteingang, ohne offenen Dialog und ohne Suchbegriff. */
@@ -76,8 +89,11 @@ async function reset() {
 }
 
 async function openSettings(tab) {
-  await page.click('.rail-tile[title^="Einstellungen"]')
-  await page.waitForSelector('.tabs')
+  // Ist der Dialog vom vorigen Schritt noch offen, genuegt der Reiter.
+  if (!(await page.locator('.tabs').count())) {
+    await page.click('.rail-tile[title^="Einstellungen"]')
+    await page.waitForSelector('.tabs')
+  }
   await page.locator('.tab', { hasText: tab }).click()
 }
 
@@ -204,6 +220,25 @@ async function seed() {
   await put('INBOX', mail('galerie@firma.example', TIM, 'Zoom-Test', {
     date: at(20),
     html: `<p id="zoom-text">Text zum Vergroessern.</p><img id="zoom-img" src="data:image/png;base64,${pixel}" width="300" height="200">`
+  }), ['\\Seen'])
+
+  // Ein Newsletter, wie er wirklich aussieht: eine zentrierte Tabelle mit fester Breite.
+  const banner = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN89p/hPwAHGQLo1PnhtAAAAABJRU5ErkJggg=='
+  await put('INBOX', mail('shop@firma.example', TIM, 'Layout-Test', {
+    date: at(19),
+    html: `<table width="100%" cellpadding="0" cellspacing="0" style="background:#eef1f5"><tr><td align="center" style="padding:24px 0">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff"><tr><td>
+        <img src="data:image/png;base64,${banner}" width="600" height="220" style="display:block">
+        <h1 style="font-family:Arial;margin:20px 24px 8px">Herbstangebote</h1>
+        <p style="font-family:Arial;margin:0 24px 24px;line-height:1.5">Alles fuer den Garten, solange der Vorrat reicht. Dieser Absatz ist lang genug, um umzubrechen, damit man sieht, wie sich der Text beim Vergroessern verhaelt.</p>
+      </td></tr></table>
+    </td></tr></table>`
+  }), ['\\Seen'])
+
+  // Reiner Fliesstext als HTML: der soll beim Vergroessern umbrechen, nicht seitlich weglaufen.
+  await put('INBOX', mail('autor@firma.example', TIM, 'Fliesstext-Test', {
+    date: at(18),
+    html: `<p id="flow">${'Ein ganz gewoehnlicher Satz, der sich ueber viele Zeilen zieht. '.repeat(30)}</p>`
   }), ['\\Seen'])
 
   const meeting = mail(ANNA, TIM, 'Teammeeting', { messageId: '<meeting@test.local>', date: at(45), text: 'Morgen um zehn.' })
@@ -656,8 +691,23 @@ async function main() {
   })
 
   console.log('Vergroessern')
+  await check('Zoom: Bilder zur Durchsicht', async () => {
+    for (const subject of ['Layout-Test', 'Zoom-Test', 'Fliesstext-Test']) {
+      await rowBySubject(subject).click()
+      await page.frameLocator('iframe[title="Nachrichteninhalt"]').locator('body').waitFor()
+      await sleep(600)
+      for (const [label, presses] of [['100', 0], ['150', 3], ['250', 3]]) {
+        for (let i = 0; i < presses; i++) await page.keyboard.press('Control+Equal')
+        await sleep(600)
+        await shot(`zoom-${subject}-${label}`)
+      }
+      await page.keyboard.press('Control+0')
+      await sleep(300)
+    }
+  })
   await check('Zoom: Strg+Mausrad vergroessert die Mail, nicht die Oberflaeche', async () => {
     await rowBySubject('Zoom-Test').click()
+    await page.keyboard.press('Control+0')
     const frame = page.frameLocator('iframe[title="Nachrichteninhalt"]')
     await frame.locator('#zoom-img').waitFor()
     const measure = () =>
@@ -666,6 +716,9 @@ async function main() {
         const doc = iframe.contentDocument
         const scroller = document.querySelector('.reader-scroll')
         return {
+          subject: document.querySelector('.sheet-subject').getBoundingClientRect().height,
+          sheetRight: document.querySelector('.sheet').getBoundingClientRect().right,
+          frameRight: iframe.getBoundingClientRect().right,
           ui: document.querySelector('.search').getBoundingClientRect().height,
           ratio: window.devicePixelRatio,
           img: doc.getElementById('zoom-img').getBoundingClientRect().width,
@@ -678,26 +731,109 @@ async function main() {
     const before = await measure()
     const box = await page.locator('iframe[title="Nachrichteninhalt"]').boundingBox()
     await page.mouse.move(box.x + box.width / 2, box.y + 60)
+
     await page.keyboard.down('Control')
     for (let i = 0; i < 6; i++) {
+      // Der Zeiger steht still - so dreht man am Rad, und so blieb es frueher haengen.
       await page.mouse.wheel(0, -100)
       await sleep(60)
     }
     await page.keyboard.up('Control')
     await sleep(500)
     const after = await measure()
-    console.log('         vorher', JSON.stringify(before), '\n         nachher', JSON.stringify(after))
+
     await sleep(800)
     await shot('09-zoom')
     expect(after.ratio === before.ratio && after.ui === before.ui, 'die Oberflaeche wurde mitvergroessert')
     expect(after.img >= before.img * 1.9, `Bild wuchs nur von ${before.img} auf ${after.img}`)
     expect(after.font >= before.font * 1.5, `Text wuchs nur von ${before.font} auf ${after.font}`)
     expect(after.overflow > 0, 'der Lesebereich laesst sich nicht seitlich scrollen')
+    expect(after.subject >= before.subject * 2, `der Kopf der Mail wuchs nicht mit (${before.subject} -> ${after.subject})`)
+    expect(after.frameRight <= after.sheetRight + 1, `der Inhalt ragt ueber das Blatt hinaus (${after.frameRight} > ${after.sheetRight})`)
     // Zurueckstellen, damit die Groesse nicht in andere Tests wirkt.
     await page.keyboard.press('Control+0')
     await sleep(300)
     const reset = await measure()
     expect(Math.abs(reset.img - before.img) < 1 && reset.overflow <= 0, `Strg+0 stellt nicht zurueck: ${JSON.stringify(reset)}`)
+  })
+
+  await check('Zoom: Fliesstext bricht um statt seitlich wegzulaufen', async () => {
+    await rowBySubject('Fliesstext-Test').click()
+    await page.keyboard.press('Control+0')
+    const frame = page.frameLocator('iframe[title="Nachrichteninhalt"]')
+    await frame.locator('#flow').waitFor()
+    const lineHeight = () =>
+      page.evaluate(() => {
+        const doc = document.querySelector('iframe[title="Nachrichteninhalt"]').contentDocument
+        const scroller = document.querySelector('.reader-scroll')
+        return {
+          font: parseFloat(getComputedStyle(doc.getElementById('flow')).fontSize) * Number(doc.body.style.zoom || 1),
+          overflow: scroller.scrollWidth - scroller.clientWidth
+        }
+      })
+    const before = await lineHeight()
+    for (let i = 0; i < 6; i++) await page.keyboard.press('Control+Equal')
+    await sleep(600)
+    const after = await lineHeight()
+    expect(after.font >= before.font * 2, `Text wuchs nur von ${before.font} auf ${after.font}`)
+    expect(after.overflow <= 0, `Fliesstext laeuft seitlich ueber (${after.overflow}px)`)
+    await page.keyboard.press('Control+0')
+    await sleep(300)
+  })
+
+  console.log('Aufteilung')
+  await check('Trenner: Liste breiter ziehen, bleibt gespeichert, Doppelklick stellt zurueck', async () => {
+    const width = () => page.locator('.list').evaluate((el) => el.getBoundingClientRect().width)
+    const before = await width()
+    const handle = await page.locator('.splitter').boundingBox()
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + 300)
+    await page.mouse.down()
+    // Ueber den Nachrichtenrahmen hinweg - der darf die Maus nicht abfangen.
+    await page.mouse.move(handle.x + 80, handle.y + 300, { steps: 4 })
+    await page.mouse.move(handle.x + 160, handle.y + 300, { steps: 4 })
+    await page.mouse.up()
+    await sleep(300)
+    const after = await width()
+    expect(Math.abs(after - before - 160) <= 4, `Liste ist ${after}px statt ${before + 160}px breit`)
+    await until(async () => (await page.evaluate(() => window.api.settings.get())).listWidth === Math.round(after), 'Breite wurde nicht gespeichert')
+    await shot('10-trenner')
+
+    await page.reload()
+    await page.waitForSelector('.row')
+    expect(Math.abs((await width()) - after) <= 1, 'Breite ging beim Neuladen verloren')
+
+    await page.locator('.splitter').dblclick()
+    await until(async () => Math.abs((await width()) - 384) <= 1, 'Doppelklick stellt nicht zurueck')
+  })
+
+  await check('Trenner: zu weit gezogen laesst dem Lesebereich Platz', async () => {
+    const handle = await page.locator('.splitter').boundingBox()
+    await page.mouse.move(handle.x + 3, handle.y + 300)
+    await page.mouse.down()
+    await page.mouse.move(handle.x + 2000, handle.y + 300, { steps: 6 })
+    await page.mouse.up()
+    await sleep(300)
+    const reader = await page.locator('.reader').evaluate((el) => el.getBoundingClientRect().width)
+    expect(reader >= 419, `Lesebereich ist nur ${reader}px breit`)
+    await page.locator('.splitter').dblclick()
+  })
+
+  await check('Trenner: Lesebereich unten - Hoehe der Liste ziehen', async () => {
+    await page.evaluate(() => window.api.settings.update({ previewPosition: 'bottom' }))
+    await page.waitForSelector('.splitter[data-axis="y"]')
+    const height = () => page.locator('.list').evaluate((el) => el.getBoundingClientRect().height)
+    const before = await height()
+    const handle = await page.locator('.splitter').boundingBox()
+    await page.mouse.move(handle.x + 200, handle.y + handle.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(handle.x + 200, handle.y - 120, { steps: 5 })
+    await page.mouse.up()
+    await sleep(300)
+    const after = await height()
+    expect(Math.abs(before - 120 - after) <= 4, `Liste ist ${after}px statt ${before - 120}px hoch`)
+    await page.locator('.splitter').dblclick()
+    await page.evaluate(() => window.api.settings.update({ previewPosition: 'right' }))
+    await page.waitForSelector('.splitter[data-axis="x"]')
   })
 
   console.log('Bestehendes')

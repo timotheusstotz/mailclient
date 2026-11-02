@@ -28,7 +28,9 @@ const DEFAULT_SETTINGS: Settings = {
   notifyOnNewMail: true,
   undoSendSec: 10,
   threadView: true,
-  templates: []
+  templates: [],
+  listWidth: 384,
+  listHeight: 0
 }
 
 /** Eine zurueckgestellte Mail. Der Schluessel ist die Kennung der Nachricht. */

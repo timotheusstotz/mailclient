@@ -26,6 +26,8 @@ interface Props {
   onToggleRead: (message: MessageSummary) => void
   onRefresh: () => void
   searchInputRef?: React.RefObject<HTMLInputElement | null>
+  /** Griff zum Verschieben der Grenze zum Lesebereich */
+  resizer?: React.ReactNode
 }
 
 export function MessageList({
@@ -45,7 +47,8 @@ export function MessageList({
   onContextMenu,
   onToggleRead,
   onRefresh,
-  searchInputRef
+  searchInputRef,
+  resizer
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -169,6 +172,7 @@ export function MessageList({
 
         {!rows.length && !loading && <EmptyList view={view} searchText={searchText} />}
       </div>
+      {resizer}
     </section>
   )
 }

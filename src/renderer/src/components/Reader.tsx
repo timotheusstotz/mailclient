@@ -4,7 +4,7 @@ import { timePresets } from '@shared/times'
 import { addressList, fileSize, folderLabel, fullDate, shortDate, shortDateTime } from '../lib/format'
 import { isTrustedDomain, senderDomain } from '../lib/remote-images'
 import { sanitizeMailHtml, textToHtml, wrapMailDocument } from '../lib/sanitize'
-import { attachZoomKeys, attachZoomWheel, type ZoomStep } from '../lib/zoom'
+import { attachCtrlWatch, attachZoomKeys, type ZoomStep } from '../lib/zoom'
 import {
   IconArchive,
   IconDownload,
@@ -62,17 +62,34 @@ export function Reader(props: Props) {
 
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  /*
+    Vergroessert wird die ganze Mail wie ein Blatt Papier: Kopf, Hinweise und
+    Inhalt im selben Massstab, und das Blatt waechst mit, statt dass der Inhalt
+    darueber hinausragt. `sheetWidth` ist die Breite des Blatts in Normalgroesse,
+    `contentWidth` die der vergroesserten Mail, sobald sie breiter wird.
+  */
+  const [sheetWidth, setSheetWidth] = useState(0)
+  const [contentWidth, setContentWidth] = useState(0)
+  useEffect(() => {
+    const node = scrollRef.current
+    if (!node) return
+    const read = (): void => {
+      const style = getComputedStyle(node)
+      const inner = node.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+      setSheetWidth(Math.max(0, Math.min(860, Math.floor(inner))))
+    }
+    read()
+    const observer = new ResizeObserver(read)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [message?.id])
+  useEffect(() => setContentWidth(0), [message?.id])
+
   // Jede Nachricht entscheidet neu, ob externe Bilder geladen werden - es sei
   // denn, ihre Absenderdomain steht auf der Liste.
   useEffect(() => setAllowRemote(allowedUpfront), [message?.id, allowedUpfront])
 
-  // Am Lesebereich, damit die Geste auch neben dem Blatt und ueber Nur-Text-
-  // Mails greift; der Nachrichtenrahmen bringt seinen eigenen Griff mit.
   const onZoomStep = props.onZoomStep
-  useEffect(() => {
-    const node = scrollRef.current
-    return node ? attachZoomWheel(node, onZoomStep) : undefined
-  }, [onZoomStep, message?.id])
 
   if (!message) {
     return (
@@ -176,7 +193,10 @@ export function Reader(props: Props) {
       </div>
 
       <div className="reader-scroll" ref={scrollRef}>
-       <div className="reader-stack">
+       <div
+        className="reader-stack"
+        style={contentWidth > sheetWidth ? { width: contentWidth, maxWidth: 'none' } : undefined}
+       >
         {props.thread.length > 1 && (
           <nav className="thread" aria-label="Unterhaltung">
             <div className="thread-head">Unterhaltung &middot; {props.thread.length} Nachrichten</div>
@@ -199,7 +219,7 @@ export function Reader(props: Props) {
           </nav>
         )}
         <article className="sheet" key={message.id} data-zoomed={props.zoom > 1}>
-          <header className="sheet-head">
+          <header className="sheet-head" style={{ zoom: props.zoom }}>
             <h1 className="sheet-subject">{message.subject}</h1>
             <div className="sheet-from">
               <span className="name">{message.from[0]?.name || message.from[0]?.address || 'Unbekannt'}</span>
@@ -215,7 +235,7 @@ export function Reader(props: Props) {
           </header>
 
           {snoozed && (
-            <p className="snooze-notice">
+            <p className="snooze-notice" style={{ zoom: props.zoom }}>
               <span>Zurueckgestellt bis {shortDateTime(message.snoozedUntil!)}.</span>
               <button className="link-btn" onClick={props.onUnsnooze}>
                 Jetzt zurueckholen
@@ -224,7 +244,9 @@ export function Reader(props: Props) {
           )}
 
           {body && body.attachments.length > 0 && (
-            <AttachmentBar message={message} body={body} />
+            <div style={{ zoom: props.zoom }}>
+              <AttachmentBar message={message} body={body} />
+            </div>
           )}
 
           <MailContent
@@ -234,6 +256,8 @@ export function Reader(props: Props) {
             allowRemote={allowRemote}
             domain={domain}
             zoom={props.zoom}
+            sheetWidth={sheetWidth}
+            onContentWidth={setContentWidth}
             onZoomStep={onZoomStep}
             onAllowRemote={() => setAllowRemote(true)}
             onTrustDomain={() => {
@@ -333,6 +357,8 @@ function MailContent({
   allowRemote,
   domain,
   zoom,
+  sheetWidth,
+  onContentWidth,
   onZoomStep,
   onAllowRemote,
   onTrustDomain
@@ -344,6 +370,8 @@ function MailContent({
   /** Absenderdomain, leer wenn sie sich nicht bestimmen liess. */
   domain: string
   zoom: number
+  sheetWidth: number
+  onContentWidth: (width: number) => void
   onZoomStep: (step: ZoomStep) => void
   onAllowRemote: () => void
   onTrustDomain: () => void
@@ -370,7 +398,7 @@ function MailContent({
   return (
     <div className="sheet-body">
       {prepared.blockedRemote > 0 && (
-        <p className="remote-notice">
+        <p className="remote-notice" style={{ zoom }}>
           <span>
             {prepared.blockedRemote === 1
               ? 'Ein externes Bild wurde blockiert.'
@@ -394,7 +422,13 @@ function MailContent({
         </p>
       )}
       {prepared.doc ? (
-        <MailFrame html={prepared.doc} zoom={zoom} onZoomStep={onZoomStep} />
+        <MailFrame
+          html={prepared.doc}
+          zoom={zoom}
+          sheetWidth={sheetWidth}
+          onContentWidth={onContentWidth}
+          onZoomStep={onZoomStep}
+        />
       ) : (
         <div
           className="plain-body"
@@ -416,18 +450,33 @@ function MailContent({
 function MailFrame({
   html,
   zoom,
+  sheetWidth,
+  onContentWidth,
   onZoomStep
 }: {
   html: string
   zoom: number
+  /** Breite des Blatts in Normalgroesse */
+  sheetWidth: number
+  /** Meldet die Breite der vergroesserten Mail; 0 heisst: sie passt aufs Blatt */
+  onContentWidth: (width: number) => void
   onZoomStep: (step: ZoomStep) => void
 }) {
   const ref = useRef<HTMLIFrameElement>(null)
   const [height, setHeight] = useState(320)
-  /** Breite des Blatts; so breit wird die Mail gesetzt, bevor sie vergroessert wird. */
-  const [baseWidth, setBaseWidth] = useState(0)
-  const baseWidthRef = useRef(0)
-  baseWidthRef.current = baseWidth
+  /*
+    Solange Strg gedrueckt ist, nimmt der Rahmen keine Maus an: dann landet
+    Strg+Mausrad sicher beim Fenster. Im Rahmen selbst kaeme es nicht
+    zuverlaessig an - waechst die Mail, waehrend der Zeiger stillsteht, schickt
+    Chromium dem Rahmen gar keine Radereignisse mehr.
+  */
+  const [ctrlHeld, setCtrlHeld] = useState(false)
+  /** Breite des Rahmens, solange vergroessert ist */
+  const [frameWidth, setFrameWidth] = useState(0)
+  const sheetWidthRef = useRef(sheetWidth)
+  sheetWidthRef.current = sheetWidth
+  const reportRef = useRef(onContentWidth)
+  reportRef.current = onContentWidth
 
   // Ueber Referenzen, damit ein Zoomschritt oder ein neuer Rueckruf nicht das
   // ganze Dokument neu bindet - das wuerde die Mail neu aufbauen.
@@ -450,18 +499,51 @@ function MailFrame({
     des vergroesserten Elements und meldete bei 70% weiterhin die volle Hoehe.
   */
   /*
-    Reinzoomen statt umbrechen: die Mail behaelt das Layout der Normalgroesse und
-    wird als Ganzes groesser, damit auch Bilder wachsen - sonst deckelt sie
-    max-width: 100% bei der Blattbreite. Der Rahmen waechst mit, und der
-    Lesebereich scrollt in beide Richtungen. Verkleinern bricht normal um.
+    Beim Vergroessern bricht der Text neu um, damit er aufs Blatt passt - aber
+    nichts, was in Normalgroesse eine feste Breite hat, wird schmaler: Bilder
+    behalten mindestens ihre Breite von 100%, und eine Newsletter-Tabelle mit
+    600px bleibt 600px breit. Was dann nicht mehr aufs Blatt passt, macht das
+    Blatt breiter, und der Lesebereich scrollt seitlich.
+
+    Dafuer wird erst das Layout der Normalgroesse vermessen. Danach ist der
+    Koerper so breit, wie es der Platz bei dieser Vergroesserung hergibt, aber
+    nie schmaler als sein starrster Inhalt.
   */
   const applyZoom = useCallback((doc: Document): void => {
-    if (!doc.body) return
+    const body = doc.body
+    if (!body) return
     const zoom = zoomRef.current
-    doc.body.style.zoom = String(zoom)
-    const fixed = zoom > 1 && baseWidthRef.current > 0
-    doc.body.style.boxSizing = fixed ? 'border-box' : ''
-    doc.body.style.width = fixed ? `${baseWidthRef.current}px` : ''
+    const sheet = sheetWidthRef.current
+    const images = Array.from(doc.images)
+
+    if (zoom <= 1 || sheet <= 0) {
+      body.style.zoom = String(zoom)
+      body.style.width = ''
+      body.style.boxSizing = ''
+      for (const img of images) img.style.minWidth = ''
+      setFrameWidth(0)
+      reportRef.current(0)
+      return
+    }
+
+    body.style.zoom = '1'
+    body.style.boxSizing = 'border-box'
+    body.style.width = `${sheet}px`
+    for (const img of images) img.style.minWidth = ''
+    const widths = images.map((img) => img.getBoundingClientRect().width)
+    images.forEach((img, i) => {
+      // min-width schlaegt das max-width: 100% aus dem Grundstil.
+      if (widths[i] > 0) img.style.minWidth = `${widths[i]}px`
+    })
+    body.style.width = 'min-content'
+    const rigid = Math.ceil(body.getBoundingClientRect().width)
+    const layout = Math.min(sheet, Math.max(sheet / zoom, rigid))
+    body.style.width = `${layout}px`
+    body.style.zoom = String(zoom)
+
+    const rendered = Math.ceil(layout * zoom)
+    setFrameWidth(rendered)
+    reportRef.current(rendered > sheet ? rendered : 0)
   }, [])
 
   const measure = useCallback((): void => {
@@ -509,20 +591,25 @@ function MailFrame({
       if (!doc?.documentElement) return
       applyZoom(doc)
       measure()
-      // Rad und Tasten auch im Nachrichtendokument: hat es den Eingabefokus,
-      // sieht das Fenster von beidem nichts.
-      const zoomAb = [
-        attachZoomWheel(doc, (step) => stepRef.current(step)),
-        attachZoomKeys(doc, (step) => stepRef.current(step))
+      // Tasten auch im Nachrichtendokument: hat es den Eingabefokus, sieht das
+      // Fenster sie nicht. Das Mausrad kommt nie hier an, siehe ctrlHeld.
+      const parts = [
+        attachZoomKeys(doc, (step) => stepRef.current(step)),
+        attachCtrlWatch(doc, setCtrlHeld)
       ]
-      detachZoom = () => zoomAb.forEach((ab) => ab())
+      detachZoom = () => parts.forEach((detach) => detach())
       observer = new ResizeObserver(measure)
       observer.observe(doc.documentElement)
       if (doc.body) observer.observe(doc.body)
+      // Ein spaet geladenes Bild aendert Breite und Hoehe der Mail.
+      const relayout = (): void => {
+        applyZoom(doc)
+        measure()
+      }
       for (const img of Array.from(doc.images)) {
         if (!img.complete) {
-          img.addEventListener('load', measure, { once: true })
-          img.addEventListener('error', measure, { once: true })
+          img.addEventListener('load', relayout, { once: true })
+          img.addEventListener('error', relayout, { once: true })
         }
       }
       timers = [120, 500, 1500].map((ms) => window.setTimeout(measure, ms))
@@ -537,15 +624,6 @@ function MailFrame({
     }
   }, [applyZoom, html, measure])
 
-  useEffect(() => {
-    const parent = ref.current?.parentElement
-    if (!parent) return
-    const read = (): void => setBaseWidth(parent.clientWidth)
-    read()
-    const observer = new ResizeObserver(read)
-    observer.observe(parent)
-    return () => observer.disconnect()
-  }, [])
 
   // Die Vergroesserung sitzt im Mail-Dokument, damit sie Text und Bilder der
   // Nachricht trifft und sonst nichts. Danach ist die Mail hoeher oder
@@ -555,7 +633,9 @@ function MailFrame({
     if (!doc?.body) return
     applyZoom(doc)
     measure()
-  }, [applyZoom, baseWidth, zoom, html, measure])
+  }, [applyZoom, sheetWidth, zoom, html, measure])
+
+  useEffect(() => attachCtrlWatch(window, setCtrlHeld), [])
 
   return (
     <iframe
@@ -563,7 +643,11 @@ function MailFrame({
       title="Nachrichteninhalt"
       srcDoc={html}
       sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-      style={{ height, width: zoom > 1 && baseWidth ? Math.ceil(baseWidth * zoom) : undefined }}
+      style={{
+        height,
+        width: zoom > 1 && frameWidth ? frameWidth : undefined,
+        pointerEvents: ctrlHeld ? 'none' : undefined
+      }}
     />
   )
 }
