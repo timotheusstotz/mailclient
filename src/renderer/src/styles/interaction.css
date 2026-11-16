@@ -1,0 +1,176 @@
+/*
+  Wie jedes klickbare Element antwortet: Hover, Druecken, Fokus und die kleine
+  Bewegung seines Icons. Die Werte sind ueberall dieselben - wer einen Knopf
+  bewegt und den daneben nicht, faellt auf.
+
+  Hover faerbt in 120 ms, Druecken senkt in 120 ms, Icons bewegen sich in 200 ms
+  (Drehungen 280 ms). Bewegt werden nur transform und opacity; Hover aendert nie
+  das Layout. Alles mit Bewegung steht unter prefers-reduced-motion: no-preference.
+*/
+
+:root {
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Ein Fokusring, ueberall gleich: 2 px in der Akzentfarbe, 2 px Abstand. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.row:focus-visible,
+.thread-item:focus-visible,
+.menu-item:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ------------------------------------------------------------ Farbwechsel */
+
+.btn,
+.btn-compose,
+.refresh-btn,
+.rail-tile,
+.folder-item,
+.tab,
+.link-btn,
+.toast-action,
+.chip button,
+.domain button,
+.attachment-main,
+.attachment-save,
+.thread-item,
+.menu-item {
+  transition:
+    background-color 120ms var(--ease),
+    border-color 120ms var(--ease),
+    color 120ms var(--ease),
+    box-shadow 120ms var(--ease),
+    filter 120ms var(--ease),
+    transform 120ms var(--ease);
+}
+.row {
+  transition:
+    background-color 90ms var(--ease),
+    transform 120ms var(--ease);
+}
+
+/* Das Primaere wird beim Hover dunkler, nicht heller - es soll satter wirken, nicht verblassen. */
+@media (hover: hover) {
+  .btn-primary:hover:not(:disabled),
+  .btn-compose:hover {
+    filter: brightness(0.92);
+  }
+  .link-btn:hover {
+    text-decoration-thickness: 2px;
+  }
+  .toast-action:hover {
+    opacity: 0.85;
+  }
+}
+
+/* ------------------------------------------------------- Druecken und Icons */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Knoepfe mit Text sinken und werden minimal kleiner. */
+  .btn:not(.btn-icon):active:not(:disabled),
+  .refresh-btn:active,
+  .tab:active,
+  .toast-action:active,
+  .link-btn:active,
+  .attachment-main:active {
+    transform: translateY(1px) scale(0.98);
+  }
+
+  /* Reine Icon-Knoepfe schrumpfen. */
+  .btn-icon:active:not(:disabled),
+  .btn-compose:active,
+  .rail-tile:active,
+  .attachment-save:active,
+  .row-dot:active,
+  .chip button:active,
+  .domain button:active {
+    transform: scale(0.94);
+  }
+
+  /* Zeilen geben kaum nach - sie werden oft und schnell geklickt. */
+  .row:active,
+  .folder-item:active,
+  .thread-item:active,
+  .menu-item:active:not(:disabled) {
+    transform: scale(0.995);
+  }
+
+  /*
+    Jedes Icon hat eine eigene kleine Bewegung, wenn sein Knopf unter dem
+    Zeiger ist. Ordner und Konten bewegen sich nicht: durch die klickt man
+    sich dauernd, da wuerde es unruhig.
+  */
+  button svg[data-icon] {
+    transition: transform 200ms var(--ease);
+  }
+
+  @media (hover: hover) {
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='reply'],
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='reply-all'] {
+      transform: translateX(-2px);
+    }
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='forward'],
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='sent'] {
+      transform: translateX(3px);
+    }
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='compose'] {
+      transform: rotate(-16deg) translate(-1px, -1px);
+      transition-duration: 280ms;
+    }
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='refresh']:not(.spin) {
+      transform: rotate(180deg);
+      transition-duration: 280ms;
+    }
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='trash'] {
+      animation: icon-wobble 460ms var(--ease);
+    }
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='paperclip'] {
+      transform: translateY(-2px);
+    }
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='download'],
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='archive'] {
+      transform: translateY(2px);
+    }
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='star'],
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='star-filled'] {
+      transform: scale(1.15);
+    }
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='envelope-open'] {
+      transform: translateY(-1px);
+    }
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='clock'] {
+      transform: rotate(30deg);
+      transition-duration: 280ms;
+    }
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='settings'] {
+      transform: rotate(60deg);
+      transition-duration: 280ms;
+    }
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='close'],
+    button:not(:disabled):not(.folder-item):hover svg[data-icon='plus'] {
+      transform: rotate(90deg);
+      transition-duration: 280ms;
+    }
+  }
+}
+
+@keyframes icon-wobble {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  20% {
+    transform: rotate(-12deg);
+  }
+  45% {
+    transform: rotate(9deg);
+  }
+  70% {
+    transform: rotate(-5deg);
+  }
+}

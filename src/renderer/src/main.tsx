@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles/app.css'
+import './styles/interaction.css'
 
 /*
   Dateien, die nicht dort landen, wo sie jemand annimmt - also ausserhalb des

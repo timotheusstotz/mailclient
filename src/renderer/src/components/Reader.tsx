@@ -76,7 +76,7 @@ export function Reader(props: Props) {
     const read = (): void => {
       const style = getComputedStyle(node)
       const inner = node.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
-      setSheetWidth(Math.max(0, Math.min(860, Math.floor(inner))))
+      setSheetWidth(Math.max(0, Math.floor(inner)))
     }
     read()
     const observer = new ResizeObserver(read)

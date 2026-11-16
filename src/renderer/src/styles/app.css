@@ -732,7 +732,8 @@ option {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 20px 24px 40px;
+  /* Das Blatt fuellt den Lesebereich bis auf diesen Rand, auch im Vollbild. */
+  padding: 16px 16px 32px;
   display: flex;
   /* safe: eine vergroesserte Mail darf links nicht aus dem Scrollbereich ragen. */
   justify-content: safe center;
@@ -747,7 +748,6 @@ option {
 
 .sheet {
   width: 100%;
-  max-width: 860px;
   background: var(--sheet);
   color: var(--sheet-ink);
   border-radius: var(--radius-lg);
@@ -1546,7 +1546,6 @@ body.resizing iframe {
 /* Verlauf und Blatt stehen untereinander; der Lesebereich selbst legt nebeneinander. */
 .reader-stack {
   width: 100%;
-  max-width: 860px;
   display: flex;
   flex-direction: column;
 }

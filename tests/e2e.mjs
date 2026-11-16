@@ -1,4 +1,4 @@
-﻿/*
+/*
   Ende-zu-Ende-Test gegen einen lokalen Mailserver (GreenMail in Docker).
 
     docker run -d --name mailclient-greenmail -p 3465:3465 -p 3993:3993 -p 8080:8080 \
@@ -15,6 +15,7 @@ import { _electron as electron } from 'playwright-core'
 import { ImapFlow } from 'imapflow'
 import nodemailer from 'nodemailer'
 import fs from 'node:fs'
+import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -27,6 +28,32 @@ const shots = path.join(root, 'tests', 'shots')
 fs.mkdirSync(shots, { recursive: true })
 
 const HOST = '127.0.0.1'
+
+/*
+  Die App spricht IMAP ueber diesen Umweg statt direkt mit GreenMail. Er reicht
+  die Bytes nur weiter, kann aber jede Richtung um `latency` ms verzoegern - so
+  verhaelt sich der lokale Server wie einer im Internet, bei dem ein Abruf
+  Sekunden dauert.
+*/
+const IMAP_PROXY_PORT = 3994
+const imapProxy = { latency: 0 }
+const proxyServer = net.createServer((inbound) => {
+  const outbound = net.connect(3993, HOST)
+  const pipe = (from, to) => {
+    let chain = Promise.resolve()
+    from.on('data', (chunk) => {
+      const wait = imapProxy.latency
+      chain = chain.then(() => new Promise((resolve) => setTimeout(resolve, wait))).then(() => {
+        if (!to.destroyed) to.write(chunk)
+      })
+    })
+    from.on('close', () => chain.then(() => to.destroy()))
+    from.on('error', () => to.destroy())
+  }
+  pipe(inbound, outbound)
+  pipe(outbound, inbound)
+})
+await new Promise((resolve) => proxyServer.listen(IMAP_PROXY_PORT, HOST, resolve))
 const TIM = 'tim@test.local'
 const ANNA = 'anna@test.local'
 const only = process.argv.slice(2)
@@ -302,20 +329,20 @@ async function main() {
     window.api.settings.update({ initialFetchCount: 200, notifyOnNewMail: false, undoSendSec: 3, runInTray: false })
   )
   await page.evaluate(
-    ([email, host]) =>
+    ([email, host, imapPort]) =>
       window.api.accounts.save({
         label: 'Test',
         displayName: 'Tim Test',
         email,
         color: '#2f5bd0',
-        imap: { host, port: 3993, secure: true },
+        imap: { host, port: imapPort, secure: true },
         smtp: { host, port: 3465, secure: true },
         username: email,
         signature: 'Tim',
         enabled: true,
         password: 'geheim'
       }),
-    [TIM, HOST]
+    [TIM, HOST, IMAP_PROXY_PORT]
   )
   await page.reload()
   await page.waitForSelector('.row', { timeout: 60000 })
@@ -403,6 +430,41 @@ async function main() {
     )
     expect((await row.getAttribute('data-unread')) === 'false', 'nach dem Abgleich ist die Mail wieder ungelesen')
     await until(async () => (await subjects(TIM)).find((m) => m.subject === 'Teammeeting')?.seen, 'Server kennt die Mail nicht als gelesen')
+  })
+
+  await check('Laden: eine nie geoeffnete Mail kommt sofort, auch waehrend ein Abruf laeuft', async () => {
+    // Ein Server mit 80 ms Antwortzeit, wie viele im Internet: ein voller Abruf dauert dann Sekunden.
+    imapProxy.latency = 80
+    void page.evaluate(() => window.api.sync.refresh()).catch(() => {})
+    await until(
+      () => page.evaluate(() => window.api.accounts.statuses().then((s) => s.some((x) => x.phase === 'syncing'))),
+      'Abruf startet nicht',
+      5000
+    )
+    // Eine alte Fuellmail: die liegt hinter den 25 vorgeladenen, ihr Text ist nirgends zwischengespeichert.
+    await search('betreff:"fuellmail 150"')
+    await rowBySubject('Fuellmail 150').click()
+    const clicked = Date.now()
+    await until(
+      async () => (await page.locator('.plain-body').textContent().catch(() => '')).includes('Text von Fuellmail 150'),
+      'Text erscheint nicht',
+      30000
+    )
+    const took = Date.now() - clicked
+    const stillSyncing = await page.evaluate(() =>
+      window.api.accounts.statuses().then((s) => s.some((x) => x.phase === 'syncing'))
+    )
+    console.log(`         (Text nach ${took} ms, Abruf lief da noch: ${stillSyncing})`)
+    imapProxy.latency = 0
+    expect(stillSyncing, 'der Abruf war schon fertig - der Test misst so nichts')
+    // Eine neue Verbindung braucht ein paar Rundlaeufe; mehr als das darf es nicht sein.
+    expect(took < 1600, `Text kam erst nach ${took} ms`)
+    await search('')
+    await until(
+      () => page.evaluate(() => window.api.accounts.statuses().then((s) => s.every((x) => x.phase === 'idle'))),
+      'Abruf wird nicht fertig',
+      120000
+    )
   })
 
   console.log('Unterhaltungen')
@@ -757,6 +819,26 @@ async function main() {
     expect(Math.abs(reset.img - before.img) < 1 && reset.overflow <= 0, `Strg+0 stellt nicht zurueck: ${JSON.stringify(reset)}`)
   })
 
+  await check('Breite: das Blatt fuellt den Lesebereich, auch bei breitem Fenster', async () => {
+    await rowBySubject('Fliesstext-Test').click()
+    await page.keyboard.press('Control+0')
+    await page.frameLocator('iframe[title="Nachrichteninhalt"]').locator('#flow').waitFor()
+    for (const width of [1440, 2200]) {
+      await page.setViewportSize({ width, height: 900 })
+      await sleep(500)
+      const m = await page.evaluate(() => ({
+        pane: document.querySelector('.reader-scroll').clientWidth,
+        sheet: document.querySelector('.sheet').getBoundingClientRect().width,
+        frame: document.querySelector('iframe[title="Nachrichteninhalt"]').getBoundingClientRect().width
+      }))
+      expect(m.pane - m.sheet <= 34, `bei ${width} px: Blatt ${m.sheet} px in ${m.pane} px Lesebereich`)
+      expect(m.sheet - m.frame <= 2, `bei ${width} px: Inhalt ${m.frame} px in ${m.sheet} px Blatt`)
+      await shot(`breite-${width}`)
+    }
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await sleep(400)
+  })
+
   await check('Zoom: Fliesstext bricht um statt seitlich wegzulaufen', async () => {
     await rowBySubject('Fliesstext-Test').click()
     await page.keyboard.press('Control+0')
@@ -779,6 +861,39 @@ async function main() {
     expect(after.overflow <= 0, `Fliesstext laeuft seitlich ueber (${after.overflow}px)`)
     await page.keyboard.press('Control+0')
     await sleep(300)
+  })
+
+  console.log('Haptik')
+  await check('Haptik: Icons bewegen sich beim Hover, Knoepfe geben beim Druecken nach', async () => {
+    await rowBySubject('Fliesstext-Test').click()
+    const transformOf = (selector) =>
+      page.locator(selector).first().evaluate((el) => getComputedStyle(el).transform)
+    const cases = [
+      ['.reader-bar button:has(svg[data-icon="reply"])', 'svg[data-icon="reply"]'],
+      ['.reader-bar button:has(svg[data-icon="forward"])', 'svg[data-icon="forward"]'],
+      ['.reader-bar button:has(svg[data-icon="trash"])', 'svg[data-icon="trash"]'],
+      ['.btn-compose', 'svg[data-icon="compose"]'],
+      ['.refresh-btn', 'svg[data-icon="refresh"]']
+    ]
+    for (const [button, icon] of cases) {
+      await page.mouse.move(5, 450)
+      await sleep(350)
+      const rest = await transformOf(`${button} ${icon}`)
+      await page.locator(button).first().hover()
+      await sleep(150)
+      const moved = await transformOf(`${button} ${icon}`)
+      expect(moved !== rest && moved !== 'none', `${icon} bewegt sich beim Hover nicht (${rest} -> ${moved})`)
+    }
+    const reply = page.locator('.reader-bar button:has(svg[data-icon="reply"])').first()
+    const box = await reply.boundingBox()
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await sleep(200)
+    const pressed = await reply.evaluate((el) => getComputedStyle(el).transform)
+    await page.mouse.up()
+    expect(pressed !== 'none', 'Antworten gibt beim Druecken nicht nach')
+    await page.keyboard.press('Escape')
+    await page.mouse.move(5, 450)
   })
 
   console.log('Aufteilung')
@@ -888,6 +1003,7 @@ async function main() {
   })
 
   await shot('08-ende')
+  proxyServer.close()
   await app.close()
   fs.rmSync(userData, { recursive: true, force: true })
 

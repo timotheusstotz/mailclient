@@ -5,7 +5,8 @@ interface IconProps {
   className?: string
 }
 
-function svg(path: React.ReactNode, size = 16, className?: string) {
+/** `name` landet als data-icon am Element: daran haengt die Hover-Bewegung in interaction.css. */
+function svg(path: React.ReactNode, size = 16, className?: string, name?: string) {
   return (
     <svg
       width={size}
@@ -17,6 +18,7 @@ function svg(path: React.ReactNode, size = 16, className?: string) {
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
+      data-icon={name}
       aria-hidden="true"
     >
       {path}
@@ -31,11 +33,12 @@ export const IconInbox = ({ size, className }: IconProps) =>
       <path d="M3.2 2.8h9.6l1.4 6.7v2.4a1 1 0 0 1-1 1H2.8a1 1 0 0 1-1-1V9.5z" />
     </>,
     size,
-    className
+    className,
+    'inbox'
   )
 
 export const IconSent = ({ size, className }: IconProps) =>
-  svg(<path d="M14.2 1.8 7 9M14.2 1.8 9.7 14.2 7 9 1.8 6.3z" />, size, className)
+  svg(<path d="M14.2 1.8 7 9M14.2 1.8 9.7 14.2 7 9 1.8 6.3z" />, size, className, 'sent')
 
 export const IconDraft = ({ size, className }: IconProps) =>
   svg(
@@ -44,7 +47,8 @@ export const IconDraft = ({ size, className }: IconProps) =>
       <path d="M9 1.8v4h4" />
     </>,
     size,
-    className
+    className,
+    'draft'
   )
 
 export const IconTrash = ({ size, className }: IconProps) =>
@@ -54,7 +58,8 @@ export const IconTrash = ({ size, className }: IconProps) =>
       <path d="M6.6 6.8v4M9.4 6.8v4" />
     </>,
     size,
-    className
+    className,
+    'trash'
   )
 
 export const IconJunk = ({ size, className }: IconProps) =>
@@ -64,7 +69,8 @@ export const IconJunk = ({ size, className }: IconProps) =>
       <path d="M8 5v3.6M8 10.8h.01" />
     </>,
     size,
-    className
+    className,
+    'junk'
   )
 
 export const IconArchive = ({ size, className }: IconProps) =>
@@ -75,21 +81,23 @@ export const IconArchive = ({ size, className }: IconProps) =>
       <path d="M6.4 8.2h3.2" />
     </>,
     size,
-    className
+    className,
+    'archive'
   )
 
 export const IconFolder = ({ size, className }: IconProps) =>
   svg(
     <path d="M1.8 12.6V3.4a.8.8 0 0 1 .8-.8h3.1l1.5 1.8h6a.8.8 0 0 1 .8.8v7.4a.8.8 0 0 1-.8.8H2.6a.8.8 0 0 1-.8-.8z" />,
     size,
-    className
+    className,
+    'folder'
   )
 
 export const IconStar = ({ size, className }: IconProps) =>
-  svg(<path d="m8 1.8 1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z" />, size, className)
+  svg(<path d="m8 1.8 1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z" />, size, className, 'star')
 
 export const IconStarFilled = ({ size = 16, className }: IconProps) => (
-  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" className={className} aria-hidden="true">
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" className={className} data-icon="star-filled" aria-hidden="true">
     <path d="m8 1.8 1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z" />
   </svg>
 )
@@ -98,7 +106,8 @@ export const IconPaperclip = ({ size, className }: IconProps) =>
   svg(
     <path d="M12.9 7.4 7.6 12.7a3.1 3.1 0 0 1-4.4-4.4l5.6-5.6a2.1 2.1 0 0 1 2.9 2.9l-5.5 5.6a1 1 0 0 1-1.5-1.5l5.1-5.1" />,
     size,
-    className
+    className,
+    'paperclip'
   )
 
 export const IconSearch = ({ size, className }: IconProps) =>
@@ -108,7 +117,8 @@ export const IconSearch = ({ size, className }: IconProps) =>
       <path d="m10.6 10.6 3 3" />
     </>,
     size,
-    className
+    className,
+    'search'
   )
 
 export const IconReply = ({ size, className }: IconProps) =>
@@ -118,7 +128,8 @@ export const IconReply = ({ size, className }: IconProps) =>
       <path d="M1.8 7.2h6.4a5 5 0 0 1 5 5v1" />
     </>,
     size,
-    className
+    className,
+    'reply'
   )
 
 export const IconReplyAll = ({ size, className }: IconProps) =>
@@ -129,7 +140,8 @@ export const IconReplyAll = ({ size, className }: IconProps) =>
       <path d="M5 7.2h4.4a4.6 4.6 0 0 1 4.6 4.6v1" />
     </>,
     size,
-    className
+    className,
+    'reply-all'
   )
 
 export const IconForward = ({ size, className }: IconProps) =>
@@ -139,7 +151,8 @@ export const IconForward = ({ size, className }: IconProps) =>
       <path d="M14.2 7.2H7.8a5 5 0 0 0-5 5v1" />
     </>,
     size,
-    className
+    className,
+    'forward'
   )
 
 export const IconCompose = ({ size = 18, className }: IconProps) =>
@@ -149,7 +162,8 @@ export const IconCompose = ({ size = 18, className }: IconProps) =>
       <path d="M10.2 3.6 12.4 5.8" />
     </>,
     size,
-    className
+    className,
+    'compose'
   )
 
 export const IconRefresh = ({ size, className }: IconProps) =>
@@ -159,7 +173,8 @@ export const IconRefresh = ({ size, className }: IconProps) =>
       <path d="M13.4 1.6v3h-3" />
     </>,
     size,
-    className
+    className,
+    'refresh'
   )
 
 export const IconSettings = ({ size, className }: IconProps) =>
@@ -169,7 +184,8 @@ export const IconSettings = ({ size, className }: IconProps) =>
       <path d="M8 1.6v1.6M8 12.8v1.6M14.4 8h-1.6M3.2 8H1.6M12.5 3.5l-1.1 1.1M4.6 11.4l-1.1 1.1M12.5 12.5l-1.1-1.1M4.6 4.6 3.5 3.5" />
     </>,
     size,
-    className
+    className,
+    'settings'
   )
 
 export const IconClock = ({ size, className }: IconProps) =>
@@ -179,11 +195,12 @@ export const IconClock = ({ size, className }: IconProps) =>
       <path d="M8 4.6V8l2.3 1.5" />
     </>,
     size,
-    className
+    className,
+    'clock'
   )
 
 export const IconClose = ({ size, className }: IconProps) =>
-  svg(<path d="M3.6 3.6 12.4 12.4M12.4 3.6 3.6 12.4" />, size, className)
+  svg(<path d="M3.6 3.6 12.4 12.4M12.4 3.6 3.6 12.4" />, size, className, 'close')
 
 export const IconLayers = ({ size, className }: IconProps) =>
   svg(
@@ -193,11 +210,12 @@ export const IconLayers = ({ size, className }: IconProps) =>
       <path d="m1.8 11 6.2 3.2L14.2 11" />
     </>,
     size,
-    className
+    className,
+    'layers'
   )
 
 export const IconPlus = ({ size, className }: IconProps) =>
-  svg(<path d="M8 2.8v10.4M2.8 8h10.4" />, size, className)
+  svg(<path d="M8 2.8v10.4M2.8 8h10.4" />, size, className, 'plus')
 
 export const IconEnvelopeOpen = ({ size, className }: IconProps) =>
   svg(
@@ -206,7 +224,8 @@ export const IconEnvelopeOpen = ({ size, className }: IconProps) =>
       <path d="m1.8 6.6 6.2 4.2 6.2-4.2" />
     </>,
     size,
-    className
+    className,
+    'envelope-open'
   )
 
 export const IconDownload = ({ size, className }: IconProps) =>
@@ -217,7 +236,8 @@ export const IconDownload = ({ size, className }: IconProps) =>
       <path d="M2.6 11.4v1.4a1 1 0 0 0 1 1h8.8a1 1 0 0 0 1-1v-1.4" />
     </>,
     size,
-    className
+    className,
+    'download'
   )
 
 export const IconFile = ({ size, className }: IconProps) =>
@@ -227,7 +247,8 @@ export const IconFile = ({ size, className }: IconProps) =>
       <path d="M9 1.8v3.6h3.8" />
     </>,
     size,
-    className
+    className,
+    'file'
   )
 
 export const IconAttach = IconPaperclip

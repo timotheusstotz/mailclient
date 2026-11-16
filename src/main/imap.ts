@@ -45,9 +45,11 @@ export interface ConnectionEvents {
 }
 
 /**
- * Haelt genau eine IMAP-Verbindung pro Konto offen. ImapFlow geht von selbst in
- * IDLE, sobald kein Mailbox-Lock gehalten wird, deshalb laufen alle Operationen
- * ueber `withMailbox()` - das uebernimmt Sperre und Freigabe.
+ * Haelt zwei IMAP-Verbindungen pro Konto. Die erste gleicht ab, wartet in IDLE
+ * und fuehrt Aktionen aus; alles darauf laeuft nacheinander ueber `withMailbox()`.
+ * Die zweite liest nur, was jemand gerade oeffnet - Nachrichtentext und Anhaenge.
+ * Ohne sie stand eine angeklickte Mail hinter dem ganzen Abgleich an und kam
+ * bei einem langsamen Server erst nach vielen Sekunden.
  */
 export class AccountConnection {
   private client: ImapFlow | null = null
@@ -58,6 +60,10 @@ export class AccountConnection {
   private pollTimer: NodeJS.Timeout | null = null
   /** Verhindert, dass zwei Sync-Laeufe fuer dasselbe Konto ineinander greifen. */
   private queue: Promise<unknown> = Promise.resolve()
+  /** Die Leseverbindung; entsteht beim ersten Oeffnen einer Mail. */
+  private reader: ImapFlow | null = null
+  private readerConnecting: Promise<ImapFlow> | null = null
+  private readQueue: Promise<unknown> = Promise.resolve()
   /**
    * Ordner, die schon einmal abgeglichen wurden. Der erste Lauf faengt das
    * ganze Postfach ein - dafuer will niemand vierhundert Hinweise sehen.
@@ -97,22 +103,7 @@ export class AccountConnection {
 
     this.setPhase('connecting')
     this.connecting = (async () => {
-      const client = new ImapFlow({
-        host: this.account.imap.host,
-        port: this.account.imap.port,
-        secure: this.account.imap.secure,
-        auth: { user: this.account.username, pass: this.password },
-        logger: false,
-        emitLogs: false,
-        // Manche Provider (WEB.DE, GMX) moegen einen sprechenden Client-Namen.
-        clientInfo: { name: 'Mailclient', version: '0.1.0' }
-      })
-
-      client.on('error', (err: Error) => {
-        // ImapFlow wirft hier auch nach normalen Verbindungsabbruechen.
-        if (this.closed) return
-        console.error(`[imap ${this.account.email}]`, err.message)
-      })
+      const client = this.createClient()
       client.on('close', () => {
         if (this.closed) return
         this.client = null
@@ -148,6 +139,66 @@ export class AccountConnection {
     }
   }
 
+  private createClient(): ImapFlow {
+    const client = new ImapFlow({
+      host: this.account.imap.host,
+      port: this.account.imap.port,
+      secure: this.account.imap.secure,
+      auth: { user: this.account.username, pass: this.password },
+      logger: false,
+      emitLogs: false,
+      // Manche Provider (WEB.DE, GMX) moegen einen sprechenden Client-Namen.
+      clientInfo: { name: 'Mailclient', version: '0.1.0' }
+    })
+    client.on('error', (err: Error) => {
+      // ImapFlow wirft hier auch nach normalen Verbindungsabbruechen.
+      if (this.closed) return
+      console.error(`[imap ${this.account.email}]`, err.message)
+    })
+    return client
+  }
+
+  /**
+   * Die Leseverbindung. Bricht sie ab, wird sie beim naechsten Oeffnen neu
+   * aufgebaut; den Status des Kontos beruehrt sie nicht - dafuer ist die
+   * Abgleichsverbindung zustaendig.
+   */
+  private async getReader(): Promise<ImapFlow> {
+    if (this.reader?.usable) return this.reader
+    if (this.readerConnecting) return this.readerConnecting
+    this.readerConnecting = (async () => {
+      const client = this.createClient()
+      client.on('close', () => {
+        if (this.reader === client) this.reader = null
+      })
+      await client.connect()
+      this.reader = client
+      return client
+    })()
+    try {
+      return await this.readerConnecting
+    } finally {
+      this.readerConnecting = null
+    }
+  }
+
+  /** Liest ueber die Leseverbindung, eins nach dem anderen. */
+  private read<T>(path: string, fn: (client: ImapFlow) => Promise<T>): Promise<T> {
+    const run = async (): Promise<T> => {
+      if (this.closed) throw new Error('Verbindung geschlossen')
+      const client = await this.getReader()
+      const lock = await client.getMailboxLock(path)
+      try {
+        return await fn(client)
+      } finally {
+        lock.release()
+      }
+    }
+    const next = this.readQueue.then(run, run)
+    this.readQueue = next.catch(() => {})
+    return next
+  }
+
   private scheduleReconnect(): void {
     if (this.closed || this.reconnectTimer) return
     // 5s, 10s, 20s, ... maximal 5 Minuten
@@ -179,6 +230,10 @@ export class AccountConnection {
   }
 
   async start(): Promise<void> {
+    // Die Leseverbindung steht schon, wenn die erste Mail angeklickt wird. Mit
+    // einem geoeffneten Ordner geht sie in IDLE - sonst trennt mancher Server
+    // eine still wartende Verbindung nach einer halben Stunde.
+    void this.read(this.inboxPath(), async () => {}).catch(() => {})
     await this.enqueue(() => this.syncAll())
     this.startPolling()
   }
@@ -208,12 +263,15 @@ export class AccountConnection {
     this.closed = true
     this.stopPolling()
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
-    try {
-      await this.client?.logout()
-    } catch {
-      this.client?.close()
+    for (const client of [this.client, this.reader]) {
+      try {
+        await client?.logout()
+      } catch {
+        client?.close()
+      }
     }
     this.client = null
+    this.reader = null
   }
 
   /** Von aussen anstossbar (Button "Jetzt abrufen"). */
@@ -427,7 +485,7 @@ export class AccountConnection {
       const cached = await this.store.getBody(accountId, folderPath, msg.uid)
       if (cached) continue
       try {
-        await this.fetchBody(folderPath, msg.uid)
+        await this.fetchBody(folderPath, msg.uid, 'sync')
         changed = true
       } catch {
         // Einzelne Mail nicht ladbar - kein Grund, den Rest abzubrechen.
@@ -441,23 +499,25 @@ export class AccountConnection {
   async getBody(folderPath: string, uid: number): Promise<MessageBody | null> {
     const cached = await this.store.getBody(this.account.id, folderPath, uid)
     if (cached) {
-      // Aeltere Cache-Eintraege kennen noch keine Vorschaubilder. Nur Mails mit
-      // Anhaengen lohnen den zweiten Abruf - und scheitert er, bleibt der
-      // vorhandene Text stehen, statt dass gar nichts angezeigt wird.
-      if (cached.previews || cached.attachments.length === 0) return cached
-      const refreshed = await this.enqueue(() => this.fetchBody(folderPath, uid)).catch(() => null)
-      return refreshed ?? cached
+      // Aeltere Cache-Eintraege kennen noch keine Vorschaubilder. Die holt ein
+      // zweiter Abruf im Hintergrund nach; gezeigt wird sofort, was da ist.
+      if (!cached.previews && cached.attachments.length > 0) {
+        void this.fetchBody(folderPath, uid, 'read').catch(() => {})
+      }
+      return cached
     }
-    return this.enqueue(() => this.fetchBody(folderPath, uid))
+    return this.fetchBody(folderPath, uid, 'read')
   }
 
-  private async fetchBody(folderPath: string, uid: number): Promise<MessageBody | null> {
+  /** `via`: 'read' fuer das, was jemand gerade oeffnet, 'sync' fuers Vorladen im Abgleich. */
+  private async fetchBody(folderPath: string, uid: number, via: 'read' | 'sync'): Promise<MessageBody | null> {
     const accountId = this.account.id
-    const parsed = await this.withMailbox(folderPath, async (client) => {
+    const download = async (client: ImapFlow): Promise<ParsedMail | null> => {
       const dl = await client.download(String(uid), undefined, { uid: true })
       if (!dl?.content) return null
       return simpleParser(dl.content)
-    })
+    }
+    const parsed = via === 'read' ? await this.read(folderPath, download) : await this.withMailbox(folderPath, download)
     if (!parsed) return null
 
     const body = buildBody(messageKey(accountId, folderPath, uid), parsed)
@@ -475,21 +535,19 @@ export class AccountConnection {
 
   /** Holt genau einen Anhang als Buffer - erst beim Klick auf "Speichern". */
   async getAttachment(folderPath: string, uid: number, partId: string): Promise<{ filename: string; contentType: string; data: Buffer } | null> {
-    return this.enqueue(async () =>
-      this.withMailbox(folderPath, async (client) => {
-        const dl = await client.download(String(uid), undefined, { uid: true })
-        if (!dl?.content) return null
-        const parsed = await simpleParser(dl.content)
-        const index = Number(partId)
-        const att = parsed.attachments[index]
-        if (!att) return null
-        return {
-          filename: att.filename || `anhang-${index + 1}`,
-          contentType: att.contentType || 'application/octet-stream',
-          data: att.content as Buffer
-        }
-      })
-    )
+    return this.read(folderPath, async (client) => {
+      const dl = await client.download(String(uid), undefined, { uid: true })
+      if (!dl?.content) return null
+      const parsed = await simpleParser(dl.content)
+      const index = Number(partId)
+      const att = parsed.attachments[index]
+      if (!att) return null
+      return {
+        filename: att.filename || `anhang-${index + 1}`,
+        contentType: att.contentType || 'application/octet-stream',
+        data: att.content as Buffer
+      }
+    })
   }
 
   // ---------------------------------------------------------- Aktionen
