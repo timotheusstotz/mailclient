@@ -10,6 +10,7 @@ import type {
   Settings,
   ViewRef
 } from '@shared/types'
+import type { Theme } from './lib/accountTone'
 
 const api = window.api
 
@@ -81,68 +82,174 @@ export function useWorkspace() {
   }
 }
 
-/** Farbe und Kurztext des Abruf-Knopfes. */
-export type SyncTone = 'idle' | 'busy' | 'done' | 'error'
+/** Was die Unterzeile der Liste rechts \u00fcber den Abruf sagt. */
+export type SyncStatus =
+  | { kind: 'idle' | 'busy' | 'done' }
+  | {
+      kind: 'error'
+      /** Kurz: "web.de offline", "web.de: Anmeldung fehlgeschlagen" */
+      text: string
+      /** Die ganze Meldung des Servers, f\u00fcr den Tooltip */
+      detail: string
+    }
 
 export interface SyncFeedback {
-  tone: SyncTone
-  /** Laeuft gerade ein Abruf? Steuert die Drehung des Symbols. */
+  status: SyncStatus
+  /** L\u00e4uft gerade ein Abruf? Dreht das Symbol am Abruf-Knopf. */
   busy: boolean
-  /** Text der Sprechblase; null heisst: nichts anzeigen. */
-  label: string | null
+  /** "Erneut": die Konten mit Fehler noch einmal abrufen */
+  retry: () => void
+}
+
+interface Problem {
+  phase: 'error' | 'offline'
+  message: string
 }
 
 /**
- * Uebersetzt die Kontostatus in eine einzelne Rueckmeldung am Abruf-Knopf.
+ * \u00dcbersetzt die Kontostatus in die Meldung rechts in der Unterzeile der Liste.
  *
- * Waehrend des Abrufs bleibt der Text stehen, danach blitzt "Aktuell" bzw. der
- * Fehler kurz auf und verschwindet wieder - eine dauerhafte Meldung wuerde man
- * nach zwei Tagen ohnehin nicht mehr sehen.
+ * "Wird abgerufen \u2026", solange ein Konto verbindet oder abgleicht; danach steht
+ * "Aktuell" ein paar Sekunden. Ein Fehler bleibt stehen, bis das Konto wieder
+ * fertig abgeglichen hat oder der Nutzer "Erneut" dr\u00fcckt - auch w\u00e4hrend die
+ * App im Hintergrund neu verbindet, sonst flackerte er bei jedem Versuch weg.
  */
-export function useSyncFeedback(statuses: AccountStatus[]): SyncFeedback {
-  const busy = useMemo(
-    () => statuses.some((s) => s.phase === 'syncing' || s.phase === 'connecting'),
-    [statuses]
-  )
-
-  // Der Text zaehlt, nicht das Objekt: jeder Statusfunk liefert neue Objekte,
-  // und ein unveraenderter Fehler soll den Ausblendzaehler nicht neu starten.
-  const problem = useMemo(() => {
-    const failed = statuses.find((s) => s.phase === 'error')
-    if (failed) return failed.message || 'Abruf fehlgeschlagen'
-    return statuses.some((s) => s.phase === 'offline') ? 'Keine Verbindung' : null
-  }, [statuses])
-
-  const [shown, setShown] = useState<{ tone: SyncTone; label: string } | null>(null)
+export function useSyncFeedback(accounts: Account[], statuses: AccountStatus[]): SyncFeedback {
+  const busy = statuses.some((s) => s.phase === 'syncing' || s.phase === 'connecting')
+  const [problems, setProblems] = useState<Map<string, Problem>>(() => new Map())
+  /** "Erneut" gedr\u00fcckt, aber noch kein Status zur\u00fcck */
+  const [retrying, setRetrying] = useState(false)
+  const [done, setDone] = useState(false)
   const wasBusy = useRef(false)
+
+  useEffect(() => {
+    setProblems((previous) => {
+      const next = new Map(previous)
+      for (const s of statuses) {
+        if (s.phase === 'error' || s.phase === 'offline') next.set(s.accountId, { phase: s.phase, message: s.message ?? '' })
+        else if (s.phase === 'idle') next.delete(s.accountId)
+      }
+      for (const id of next.keys()) if (!statuses.some((s) => s.accountId === id)) next.delete(id)
+      const same =
+        next.size === previous.size &&
+        [...next].every(([id, p]) => previous.get(id)?.phase === p.phase && previous.get(id)?.message === p.message)
+      return same ? previous : next
+    })
+  }, [statuses])
 
   useEffect(() => {
     if (busy) {
       wasBusy.current = true
-      setShown({ tone: 'busy', label: 'Wird abgerufen\u2026' })
+      setRetrying(false)
+      setDone(false)
       return
     }
-    // Ob gerade ein Lauf zu Ende ging - nur dann ist "Aktuell" eine Nachricht.
-    const justFinished = wasBusy.current
+    // Nur ein gerade beendeter Lauf ist eine Nachricht wert.
+    if (!wasBusy.current) return
     wasBusy.current = false
-    if (problem) {
-      setShown({ tone: 'error', label: problem })
-      const timer = setTimeout(() => setShown(null), 6000)
-      return () => clearTimeout(timer)
-    }
-    if (!justFinished) {
-      setShown(null)
-      return
-    }
-    setShown({ tone: 'done', label: 'Aktuell' })
-    const timer = setTimeout(() => setShown(null), 2400)
+    setDone(true)
+    const timer = setTimeout(() => setDone(false), 2400)
     return () => clearTimeout(timer)
-  }, [busy, problem])
+  }, [busy])
 
-  // Der Knopf faerbt sich nach dem tatsaechlichen Zustand, der Text darf
-  // unabhaengig davon schon wieder verschwunden sein.
-  const tone: SyncTone = busy ? 'busy' : problem ? 'error' : (shown?.tone ?? 'idle')
-  return { tone, busy, label: shown?.label ?? null }
+  // Kommt nach "Erneut" gar kein Status, steht der Fehler wieder da.
+  useEffect(() => {
+    if (!retrying) return
+    const timer = setTimeout(() => setRetrying(false), 5000)
+    return () => clearTimeout(timer)
+  }, [retrying])
+
+  const retry = useCallback(() => {
+    const ids = [...problems.keys()]
+    setProblems(new Map())
+    setRetrying(true)
+    for (const id of ids) void api.sync.refresh(id).catch(() => {})
+  }, [problems])
+
+  const status = useMemo((): SyncStatus => {
+    const first = [...problems].find(([id]) => accounts.some((a) => a.id === id))
+    if (first && !retrying) {
+      const [id, problem] = first
+      const label = accounts.find((a) => a.id === id)?.label ?? 'Konto'
+      const text = problems.size > 1 ? `${problems.size} Konten offline` : problemText(label, problem)
+      const detail = [...problems]
+        .map(([pid, p]) => `${accounts.find((a) => a.id === pid)?.label ?? 'Konto'}: ${p.message || 'Keine Verbindung'}`)
+        .join('\n')
+      return { kind: 'error', text, detail }
+    }
+    if (busy || retrying) return { kind: 'busy' }
+    return { kind: done ? 'done' : 'idle' }
+  }, [accounts, busy, done, problems, retrying])
+
+  return { status, busy: busy || retrying, retry }
+}
+
+/** "web.de offline" f\u00fcr Verbindungsprobleme, sonst knapp, was schiefging. */
+function problemText(label: string, problem: Problem): string {
+  if (/Anmeldung/i.test(problem.message)) return `${label}: Anmeldung fehlgeschlagen`
+  if (problem.phase === 'offline' || /Verbindung|Server|Zeit/i.test(problem.message)) return `${label} offline`
+  return `${label}: Abruf fehlgeschlagen`
+}
+
+/** "light" oder "dark", wie es gerade gilt; "system" folgt dem Betriebssystem. Setzt es aufs Wurzelelement. */
+export function useTheme(choice: Settings['theme'] | undefined): Theme {
+  const query = '(prefers-color-scheme: dark)'
+  const [systemDark, setSystemDark] = useState(() => window.matchMedia(query).matches)
+  useEffect(() => {
+    const media = window.matchMedia(query)
+    const onChange = (): void => setSystemDark(media.matches)
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [])
+  const theme: Theme = choice === 'dark' || (choice !== 'light' && systemDark) ? 'dark' : 'light'
+  useEffect(() => {
+    if (choice) document.documentElement.dataset.theme = theme
+  }, [choice, theme])
+  return theme
+}
+
+/** Ob eine Media-Abfrage gerade zutrifft, etwa das schmale Fenster. */
+export function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
+  useEffect(() => {
+    const media = window.matchMedia(query)
+    const onChange = (): void => setMatches(media.matches)
+    onChange()
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [query])
+  return matches
+}
+
+/**
+ * Wie viele Mails unter "Markiert" und "Zur\u00fcckgestellt" stehen, f\u00fcr die Zahlen
+ * in der Ordnerspalte. Nach einer \u00c4nderung kurz gewartet: ein Abgleich meldet
+ * sich oft mehrmals hintereinander.
+ */
+export function useViewCounts(): { flagged: number; snoozed: number } {
+  const [counts, setCounts] = useState({ flagged: 0, snoozed: 0 })
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let cancelled = false
+    const load = async (): Promise<void> => {
+      const [flagged, snoozed] = await Promise.all([
+        api.messages.list({ kind: 'unified', id: 'flagged' }),
+        api.messages.list({ kind: 'unified', id: 'snoozed' })
+      ])
+      if (!cancelled) setCounts({ flagged: flagged.length, snoozed: snoozed.length })
+    }
+    void load().catch(() => {})
+    const off = api.on('messages:changed', () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => void load().catch(() => {}), 400)
+    })
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+      off()
+    }
+  }, [])
+  return counts
 }
 
 /** Die Nachrichten der aktuellen Ansicht, inklusive Live-Aktualisierung. */
@@ -225,11 +332,15 @@ export function useThread(message: MessageSummary | null, enabled: boolean): Mes
   return thread
 }
 
-/** Der Textkoerper der ausgewaehlten Nachricht. */
+/**
+ * Der Textkoerper der ausgewaehlten Nachricht. Ergebnis und Fehler gelten nur
+ * fuer die Nachricht, fuer die sie geholt wurden: wechselt sie, ist beides
+ * sofort weg - sonst stuende kurz der Text der vorigen Mail unter dem Kopf der
+ * neuen. `retry` holt den Koerper nach einem Fehler noch einmal.
+ */
 export function useMessageBody(message: MessageSummary | null) {
-  const [body, setBody] = useState<MessageBody | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<{ key: string; body: MessageBody | null; error: string | null } | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   // Die Identitaet haengt an der Kennung, nicht am Objekt: jeder Sync liefert
   // neue Objekte, der Inhalt der Nachricht aendert sich davon aber nicht.
@@ -239,33 +350,31 @@ export function useMessageBody(message: MessageSummary | null) {
 
   useEffect(() => {
     const message = ref.current
-    if (!message) {
-      setBody(null)
-      setError(null)
-      return
-    }
+    setResult(null)
+    if (!message) return
     let cancelled = false
-    setLoading(true)
-    setError(null)
+    const done = (body: MessageBody | null, error: string | null): void => {
+      if (!cancelled) setResult({ key: message.id, body, error })
+    }
     void api.messages
       .body(message.accountId, message.folder, message.uid)
-      .then((result) => {
-        if (cancelled) return
-        setBody(result)
-        if (!result) setError('Diese Nachricht liess sich nicht laden.')
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err.message)
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+      // Der Main-Prozess liefert null, wenn weder Server noch Ablage die Mail haben.
+      .then((body) => done(body, body ? null : 'Der Server hat sie nicht geliefert, und hier liegt keine Kopie.'))
+      .catch((err: Error) => done(null, err.message))
     return () => {
       cancelled = true
     }
-  }, [key])
+  }, [key, attempt])
 
-  return { body, loading, error }
+  const retry = useCallback(() => setAttempt((n) => n + 1), [])
+  const current = result && result.key === key ? result : null
+
+  return {
+    body: current?.body ?? null,
+    error: current?.error ?? null,
+    loading: key !== null && !current,
+    retry
+  }
 }
 
 /**

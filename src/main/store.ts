@@ -29,8 +29,9 @@ const DEFAULT_SETTINGS: Settings = {
   undoSendSec: 10,
   threadView: true,
   templates: [],
-  listWidth: 384,
-  listHeight: 0
+  listWidth: 0,
+  listHeight: 0,
+  folderGroups: {}
 }
 
 /** Eine zurueckgestellte Mail. Der Schluessel ist die Kennung der Nachricht. */

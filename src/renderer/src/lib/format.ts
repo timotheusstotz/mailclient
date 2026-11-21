@@ -44,6 +44,62 @@ export function fullDate(ms: number): string {
   return fullFmt.format(new Date(ms))
 }
 
+const headFmt = new Intl.DateTimeFormat('de-DE', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+})
+const dayTimeFmt = new Intl.DateTimeFormat('de-DE', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit'
+})
+const weekdayTimeFmt = new Intl.DateTimeFormat('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })
+const dateTimeFmt = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+
+/** Datum im Kopf einer Mail: "Mo., 16. Nov. 2026, 17:13". */
+export function headDate(ms: number): string {
+  return headFmt.format(new Date(ms))
+}
+
+/** Zeitpunkt ohne Jahr: "Mo., 23. Nov., 08:00" - fuer Zurueckgestelltes und den Verlauf. */
+export function dayTime(ms: number): string {
+  return dayTimeFmt.format(new Date(ms))
+}
+
+/**
+ * Ein Zeitpunkt in der Zukunft, so kurz, wie er neben einem Namen noch eindeutig
+ * ist: heute "18:00", morgen "Di., 08:00", sonst "23. Nov., 08:00".
+ */
+export function upcomingTime(ms: number, now = new Date()): string {
+  const date = new Date(ms)
+  const dayStart = (d: Date): number => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const days = Math.round((dayStart(date) - dayStart(now)) / 86_400_000)
+  if (days === 0) return timeFmt.format(date)
+  if (days === 1) return weekdayTimeFmt.format(date)
+  return dateTimeFmt.format(date)
+}
+
+/** Etikett einer zurückgestellten Mail in der Liste: "bis 18:00", "bis Mo., 08:00", "bis 23. Nov., 08:00". */
+export function snoozeTag(ms: number, now = new Date()): string {
+  const date = new Date(ms)
+  const dayStart = (d: Date): number => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const days = Math.round((dayStart(date) - dayStart(now)) / 86_400_000)
+  if (days === 0) return `bis ${timeFmt.format(date)}`
+  if (days > 0 && days < 7) return `bis ${weekdayTimeFmt.format(date)}`
+  return `bis ${dateTimeFmt.format(date)}`
+}
+
+/** "1 Konto", "3 Konten" */
+export function counted(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`
+}
+
 export function displayName(address?: Address): string {
   if (!address) return 'Unbekannt'
   return address.name || address.address
@@ -66,15 +122,18 @@ export function formatAddressFull(a: Address): string {
  */
 export function listPartner(msg: MessageSummary, folderRole?: string): string {
   if (folderRole === 'sent' || folderRole === 'drafts') {
-    return msg.to.length ? addressList(msg.to, 2) : 'Kein Empfaenger'
+    return msg.to.length ? addressList(msg.to, 2) : 'Kein Empfänger'
   }
   return displayName(msg.from[0])
 }
 
+const decimalFmt = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 })
+
+/** Dateigroesse wie im Explorer: "214 KB", "3,4 MB". */
 export function fileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} kB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${decimalFmt.format(bytes / (1024 * 1024))} MB`
 }
 
 export function initials(label: string): string {
@@ -112,7 +171,7 @@ export function folderLabel(name: string, role: string): string {
     case 'sent':
       return 'Gesendet'
     case 'drafts':
-      return 'Entwuerfe'
+      return 'Entwürfe'
     case 'trash':
       return 'Papierkorb'
     case 'junk':

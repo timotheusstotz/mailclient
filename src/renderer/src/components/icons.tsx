@@ -179,10 +179,11 @@ export const IconRefresh = ({ size, className }: IconProps) =>
 
 export const IconSettings = ({ size, className }: IconProps) =>
   svg(
-    <>
-      <circle cx="8" cy="8" r="2.2" />
-      <path d="M8 1.6v1.6M8 12.8v1.6M14.4 8h-1.6M3.2 8H1.6M12.5 3.5l-1.1 1.1M4.6 11.4l-1.1 1.1M12.5 12.5l-1.1-1.1M4.6 4.6 3.5 3.5" />
-    </>,
+    // Ein Zahnrad wie im Entwurf; gezeichnet im 24er-Raster und auf 16 verkleinert.
+    <g transform="scale(0.6667)" strokeWidth="2.4">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </g>,
     size,
     className,
     'settings'
@@ -252,3 +253,151 @@ export const IconFile = ({ size, className }: IconProps) =>
   )
 
 export const IconAttach = IconPaperclip
+
+export const IconChevron = ({ size, className }: IconProps) =>
+  svg(<path d="m4 6 4 4 4-4" />, size, className, 'chevron')
+
+/** Pfeil nach rechts zum Aufklappen; offen dreht ihn das CSS um 90 Grad nach unten. */
+export const IconChevronRight = ({ size, className }: IconProps) =>
+  svg(<path d="m6 4 4 4-4 4" />, size, className, 'chevron-right')
+
+/** Die Welt: sucht auch auf dem Server. */
+export const IconGlobe = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <circle cx="8" cy="8" r="6.2" />
+      <path d="M1.8 8h12.4M8 1.8c1.7 1.7 2.5 3.8 2.5 6.2S9.7 12.5 8 14.2C6.3 12.5 5.5 10.4 5.5 8S6.3 3.5 8 1.8z" />
+    </>,
+    size,
+    className,
+    'globe'
+  )
+
+/** Ein offener Bogen, der sich dreht, solange abgerufen wird. */
+export const IconSpinner = ({ size, className }: IconProps) =>
+  svg(<path d="M13.6 8A5.6 5.6 0 1 1 8 2.4" />, size, className, 'spinner')
+
+export const IconCheck = ({ size, className }: IconProps) =>
+  svg(<path d="m3.2 8.4 3.2 3 6.4-6.6" />, size, className, 'check')
+
+export const IconAlert = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <circle cx="8" cy="8" r="6.2" />
+      <path d="M8 4.8v3.8M8 11h.01" />
+    </>,
+    size,
+    className,
+    'alert'
+  )
+
+/** Pfeil gegen den Uhrzeigersinn: noch einmal versuchen. */
+export const IconReset = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M2.6 8a5.4 5.4 0 1 0 1.6-3.8" />
+      <path d="M2.6 2.4v3.2h3.2" />
+    </>,
+    size,
+    className,
+    'reset'
+  )
+
+export const IconUndo = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M6 9.4 2.6 6 6 2.6" />
+      <path d="M2.6 6h7.2a3.4 3.4 0 0 1 0 6.8H8" />
+    </>,
+    size,
+    className,
+    'undo'
+  )
+
+export const IconMoon = ({ size, className }: IconProps) =>
+  svg(<path d="M13.4 9.8A5.8 5.8 0 1 1 6.2 2.6a4.6 4.6 0 0 0 7.2 7.2z" />, size, className, 'moon')
+
+export const IconSunrise = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M1.8 12.8h12.4" />
+      <path d="M4.4 12.8a3.6 3.6 0 0 1 7.2 0" />
+      <path d="M8 1.8v4M6.4 3.4 8 1.8l1.6 1.6" />
+      <path d="m2.6 8.8 1.2.7M13.4 8.8l-1.2.7" />
+    </>,
+    size,
+    className,
+    'sunrise'
+  )
+
+export const IconCalendarArrow = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M3.4 3.2h9.2a1 1 0 0 1 1 1v8.6a1 1 0 0 1-1 1H3.4a1 1 0 0 1-1-1V4.2a1 1 0 0 1 1-1z" />
+      <path d="M2.4 6.4h11.2M5.4 1.8v2.4M10.6 1.8v2.4" />
+      <path d="M5.8 10.2h4.2M8.6 8.8l1.4 1.4-1.4 1.4" />
+    </>,
+    size,
+    className,
+    'calendar-arrow'
+  )
+
+export const IconImage = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M3 2.8h10a1 1 0 0 1 1 1v8.4a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.8a1 1 0 0 1 1-1z" />
+      <path d="m2 10.6 3-3 2.6 2.6 1.8-1.8 4.6 4.4" />
+      <path d="M10.6 6h.01" />
+    </>,
+    size,
+    className,
+    'image'
+  )
+
+export const IconImageOff = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="m2 2 12 12" />
+      <path d="M14 10.2V3.8a1 1 0 0 0-1-1H6.2" />
+      <path d="M2 4.8v7.4a1 1 0 0 0 1 1h7.4" />
+      <path d="m2 10.6 2.6-2.6 2 2" />
+    </>,
+    size,
+    className,
+    'image-off'
+  )
+
+export const IconMail = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M2.8 3.4h10.4a1 1 0 0 1 1 1v7.2a1 1 0 0 1-1 1H2.8a1 1 0 0 1-1-1V4.4a1 1 0 0 1 1-1z" />
+      <path d="m1.8 4.6 6.2 4.2 6.2-4.2" />
+    </>,
+    size,
+    className,
+    'mail'
+  )
+
+/** Umschlag mit Punkt: wieder als ungelesen markieren. */
+export const IconMailUnread = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M14 8.2v3.6a1.2 1.2 0 0 1-1.2 1.2H3.2A1.2 1.2 0 0 1 2 11.8V5.4a1.2 1.2 0 0 1 1.2-1.2h6" />
+      <path d="m2 5.4 6 4 2.6-1.7" />
+      <circle cx="12.8" cy="4.4" r="1.7" />
+    </>,
+    size,
+    className,
+    'mail-unread'
+  )
+
+export const IconFolderMove = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M1.8 12.6V3.4a.8.8 0 0 1 .8-.8h3.1l1.5 1.8h6a.8.8 0 0 1 .8.8v7.4a.8.8 0 0 1-.8.8H2.6a.8.8 0 0 1-.8-.8z" />
+      <path d="M5.6 8.6h4.6M8.8 7.2l1.4 1.4-1.4 1.4" />
+    </>,
+    size,
+    className,
+    'folder-move'
+  )

@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Liste – Tokens und Zustände</title>
+<link rel="stylesheet" href="../leseansicht/reader.css">
+<link rel="stylesheet" href="list.css">
+<style>body{margin:0;background:#0b0d10}
+
+.zs-wrap{display:flex;width:1440px;height:1920px;overflow:hidden}
+.zs{width:720px;flex:none;padding:28px 32px;display:flex;flex-direction:column;gap:22px;background:var(--paper);overflow:hidden}
+.zs h2{margin:0;font:650 20px/1.2 var(--sans);letter-spacing:-0.015em;color:var(--ink)}
+.zs h3{margin:0 0 10px;font:650 13.5px/1 var(--sans);color:var(--ink)}
+.zs .cap{font:500 11.5px/1.3 var(--sans);color:var(--ink-3);text-align:center;margin-top:6px}
+.zs .line{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.zs .cell{display:flex;flex-direction:column;align-items:center}
+.zs .railbed{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:16px;align-items:flex-start}
+.zs .fdbed{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:8px;width:236px;display:flex;flex-direction:column;gap:2px}
+.zs .fdlbl{display:grid;grid-template-columns:236px 1fr;gap:14px;align-items:start}
+.zs .fdcap{display:flex;flex-direction:column;gap:2px;padding-top:8px}
+.zs .fdcap span{height:30px;line-height:30px;font:500 11.5px/30px var(--sans);color:var(--ink-3)}
+.zs .listbed{width:372px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.zs .rowlbl{display:grid;grid-template-columns:372px 1fr;gap:14px}
+.zs .rowcap{display:flex;flex-direction:column}
+.zs .rowcap span{font:500 11.5px/1.3 var(--sans);color:var(--ink-3);display:flex;align-items:center}
+.zs .sw{width:40px;height:28px;border-radius:6px;border:1px solid var(--line)}
+.zs .spbed{position:relative;width:96px;height:96px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:visible}
+</style>
+</head>
+<body>
+<div class="zs-wrap">
+<div class="mc zs" data-theme="dark">
+  <h2>Dunkel</h2>
+  <div>
+    <h3>Kontenschiene · Kachel 40 px, Radius 10</h3>
+    <div class="railbed">
+      <div class="cell"><button class="rl-compose" aria-label="Neue Nachricht"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"></path></svg></button><span class="cap">Neu</span></div>
+      <div class="cell"><button class="rl-compose is-hover" aria-label="Neue Nachricht"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"></path></svg></button><span class="cap">Neu, Hover</span></div>
+      <div class="cell"><button class="rl-tile acct--google"><span class="rl-ini">GO</span></button><span class="cap">Ruhe</span></div>
+      <div class="cell"><button class="rl-tile acct--google is-hover"><span class="rl-ini">GO</span></button><span class="cap">Hover</span></div>
+      <div class="cell"><button class="rl-tile acct--google is-active"><span class="rl-ini">GO</span></button><span class="cap">Gedrückt</span></div>
+      <div class="cell"><button class="rl-tile acct--google is-focus"><span class="rl-ini">GO</span></button><span class="cap">Fokus</span></div>
+      <div class="cell" style="position: relative; padding-left: 10px;"><button class="rl-tile acct--google is-on"><span class="rl-ini">GO</span><span class="rl-badge">3</span></button><span class="cap">Aktiv, 3 neu</span></div>
+      <div class="cell"><button class="rl-tile acct--icloud"><span class="rl-ini">IC</span><span class="rl-stat rl-stat--busy"></span></button><span class="cap">Verbindet</span></div>
+      <div class="cell"><button class="rl-tile acct--webde is-off"><span class="rl-ini">WE</span><span class="rl-stat rl-stat--off"></span></button><span class="cap">Offline</span></div>
+      <div class="cell"><button class="rl-tile acct--webde is-off"><span class="rl-ini">WE</span><span class="rl-stat rl-stat--err">!</span></button><span class="cap">Fehler</span></div>
+    </div>
+  </div>
+  <div>
+    <h3>Ordner · Zeile 30 px, Einzug 16 px je Ebene (bis 3)</h3>
+    <div class="fdlbl">
+      <div class="fdbed">
+        <button class="fi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v4H3zM5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"></path></svg><span class="lb">Archiv</span><span class="n"></span></button>
+        <button class="fi is-hover"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3L10 14M21 3l-6.5 18-4-8.5L2 8.5z"></path></svg><span class="lb">Gesendet</span><span class="n"></span></button>
+        <button class="fi is-active"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">Kleinanzeigen</span><span class="n"></span></button>
+        <button class="fi is-focus"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">GitHub</span><span class="n"></span></button>
+        <button class="fi is-on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l2.5-7.5A2 2 0 0 1 7.4 4h9.2a2 2 0 0 1 1.9 1.5L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 13h5l1.5 2.5h5L16 13h5"></path></svg><span class="lb">Posteingang</span><span class="n">3</span></button>
+        <button class="fi has-unread"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5.5M12 16.5v.01"></path></svg><span class="lb">Spam</span><span class="n">9</span></button>
+        <button class="fi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v4h4"></path></svg><span class="lb">Entwürfe</span><span class="n n--total">2</span></button>
+        <button class="fi is-drop"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">Amazon</span><span class="n"></span></button>
+        <button class="fg-head acct--google"><svg class="tw is-open" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg><span class="dot"></span><span class="lb">Google</span><span class="n"></span></button>
+        <button class="fg-head acct--webde" style="margin-top: 0;"><svg class="tw" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg><span class="dot"></span><span class="lb">web.de</span><span class="err">Fehler</span><span class="n"></span></button>
+        <button class="fi" style="--lvl: 0;"><svg class="tw is-open" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">Depot</span><span class="n"></span></button>
+        <button class="fi" style="--lvl: 1;"><svg class="tw is-open" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">2025</span><span class="n"></span></button>
+        <button class="fi" style="--lvl: 2;"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">Steuer</span><span class="n"></span></button>
+        <button class="fi fi--more"><svg class="tw" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">Eigene Ordner</span><span class="n">10</span></button>
+      </div>
+      <div class="fdcap">
+        <span>Ruhe</span><span>Hover</span><span>Gedrückt</span><span>Fokus (Ring innen)</span><span>Aktuell</span><span>Ungelesen: fett, Zahl</span><span>Entwürfe: Gesamtzahl, leise</span><span>Mail darübergezogen</span>
+        <span style="margin-top: 10px;">Kontogruppe offen</span><span>Zu, mit Fehler</span><span>Ebene 1, offen</span><span>Ebene 2</span><span>Ebene 3</span><span>Eigene Ordner, eingeklappt</span>
+      </div>
+    </div>
+  </div>
+  <div>
+    <h3>Zeile · 74 px bequem, 52 px kompakt</h3>
+    <div class="rowlbl">
+      <div class="listbed">
+          <div class="r acct--google ">
+            <span class="r-acct"></span>
+            <button class="r-dot" aria-label="Als ungelesen markieren"></button>
+            <span class="r-from"><span class="nm">cs-reply@amazon.de</span></span>
+            <span class="r-date">14:30</span>
+            <span class="r-subj">Rückforderung zu viel gezahlter Prime-Beiträge nach BGH-Urteil vom …</span>
+            <span class="r-marks">
+            </span>
+            <span class="r-snip">Guten Tag, vielen Dank, dass Sie uns bezüglich der Preiserhöhung …</span>
+          </div>
+          <div class="r acct--google is-unread">
+            <span class="r-acct"></span>
+            <button class="r-dot" aria-label="Als gelesen markieren"></button>
+            <span class="r-from"><span class="nm">Instaffo</span></span>
+            <span class="r-date">08:24</span>
+            <span class="r-subj">Könnte gut zu dir passen: Softwarearchitekt:in tomedo</span>
+            <span class="r-marks">
+            </span>
+            <span class="r-snip">Dieser Job könnte gut zu dir passen Hey Timotheus, wir haben die Stelle b…</span>
+          </div>
+          <div class="r acct--google is-hover">
+            <span class="r-acct"></span>
+            <button class="r-dot is-hover" aria-label="Als ungelesen markieren"></button>
+            <span class="r-from"><span class="nm">cs-reply@amazon.de</span><span class="r-cnt">2</span></span>
+            <span class="r-date">13:52</span>
+            <span class="r-subj">Ihre Anfrage bei Amazon.de</span>
+            <span class="r-marks">
+            </span>
+            <span class="r-snip">Guten Tag, vielen Dank für das freundliche Gespräch. Ich schicke Ihnen al…</span>
+          </div>
+          <div class="r acct--icloud is-active">
+            <span class="r-acct"></span>
+            <button class="r-dot" aria-label="Als ungelesen markieren"></button>
+            <span class="r-from"><span class="nm">Die Linke Michael Grüber</span></span>
+            <span class="r-date">13:59</span>
+            <span class="r-subj">Die Linke Wiesbaden Rundmail</span>
+            <span class="r-marks">
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"></path></svg>
+            </span>
+            <span class="r-snip">Liebe Genoss:innen, uns stehen ereignisreiche Tage bevor. Anfang Dezember …</span>
+          </div>
+          <div class="r acct--google is-sel">
+            <span class="r-acct"></span>
+            <button class="r-dot" aria-label="Als ungelesen markieren"></button>
+            <span class="r-from"><span class="nm">Riot Games</span></span>
+            <span class="r-date">17:13</span>
+            <span class="r-subj">Login Code: 915755</span>
+            <span class="r-marks">
+            </span>
+            <span class="r-snip">Sign-in Code Here's your sign-in code: 915755 This code will expire soon.</span>
+          </div>
+          <div class="r acct--webde is-multi">
+            <span class="r-acct"></span>
+            <span class="r-cb is-on" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+            <span class="r-from"><span class="nm">Amazon.de</span></span>
+            <span class="r-date">13:19</span>
+            <span class="r-subj">Bestellt: „Fida Retrieverleine mit…“ und 1 mehr Artikel</span>
+            <span class="r-marks">
+              <svg class="ic star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"></path></svg>
+            </span>
+            <span class="r-snip">Meine Bestellungen https://www.amazon.de/gp/css/order-history?ref_=fe…</span>
+          </div>
+          <div class="r acct--icloud">
+            <span class="r-acct"></span>
+            <button class="r-dot" aria-label="Als ungelesen markieren"></button>
+            <span class="r-from"><span class="nm">noreply@deutschebahn.com</span></span>
+            <span class="r-date">09:53</span>
+            <span class="r-subj">Buchungsbestätigung Deutsche Bahn (Auftrag: 970486644102)</span>
+            <span class="r-marks">
+              <span class="r-tag"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5V12l3 2"></path></svg>bis Mo., 08:00</span>
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"></path></svg>
+            </span>
+            <span class="r-snip">DB - Buchungsbestätigung --&gt; Hier Ihre Buchungsbestätigung. Hallo H…</span>
+          </div>
+          <div class="r acct--icloud is-focus">
+            <span class="r-acct"></span>
+            <button class="r-dot" aria-label="Als ungelesen markieren"></button>
+            <span class="r-from"><span class="nm">post@slingailu.de</span></span>
+            <span class="r-date">11:34</span>
+            <span class="r-subj">Rechnung und Versand</span>
+            <span class="r-marks">
+              <span class="r-tag r-tag--back"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3"></path></svg>Wieder da</span>
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"></path></svg>
+            </span>
+            <span class="r-snip">Hallo Timotheus Stotz, deine Bestellung ist jetzt abgeschlossen, nochmal …</span>
+          </div>
+      </div>
+      <div class="rowcap">
+        <span style="height: 74px;">Gelesen, Ruhe</span><span style="height: 74px;">Ungelesen: Punkt, fett</span><span style="height: 74px;">Hover, Punkt zeigt Ring</span><span style="height: 74px;">Gedrückt</span><span style="height: 74px;">Ausgewählt</span><span style="height: 74px;">Mehrfach: Häkchen statt Punkt</span><span style="height: 74px;">Zurückgestellt</span><span style="height: 74px;">Wieder da, Fokus</span>
+      </div>
+    </div>
+  </div>
+  <div>
+    <h3>Suchfeld und Abruf · 36 px</h3>
+    <div style="display: flex; flex-direction: column; gap: 10px; width: 372px;">
+      <div style="display: flex; gap: 8px;"><div class="sf"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"></path></svg><span class="ph">Durchsuchen</span><span class="lbl-k">Strg F</span></div><button class="btn btn--icon rf mv-spin" aria-label="Jetzt abrufen"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5"></path></svg></span></button></div>
+      <div style="display: flex; gap: 8px;"><div class="sf is-hover"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"></path></svg><span class="ph">Durchsuchen</span><span class="lbl-k">Strg F</span></div><button class="btn btn--icon rf mv-spin is-hover" aria-label="Jetzt abrufen"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5"></path></svg></span></button></div>
+      <div style="display: flex; gap: 8px;"><div class="sf is-focus"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"></path></svg><span class="val"><span class="tok"><i>von:</i>amazon</span><span class="tok"><i>hat:</i>anhang</span><span>Prime</span><span class="caret"></span></span><button class="clr" aria-label="Suche leeren"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div><button class="btn btn--icon rf" aria-label="Jetzt abrufen"><span class="icw"><svg class="ic is-spin" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5"></path></svg></span></button></div>
+      <div style="display: flex; gap: 16px; padding: 4px 0 0 2px;">
+        <span class="sync"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Aktuell</span>
+        <span class="sync sync--busy"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7"></path></svg>Wird abgerufen …</span>
+        <span class="sync sync--err"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5.5M12 16.5v.01"></path></svg>web.de offline</span>
+      </div>
+      <span class="cap" style="text-align: left;">Ruhe · Hover (Rahmen dunkler, Pfeil dreht 180°) · Fokus mit Kürzeln als Marken, Abruf läuft · Status rechts in der Zeile darunter</span>
+    </div>
+  </div>
+  <div>
+    <h3>Trenner Liste | Lesebereich · Griff 9 px, Linie 1 px</h3>
+    <div class="line">
+      <div class="cell"><div class="spbed"><div class="sp" style="right: auto; left: 43px;"><i></i></div></div><span class="cap">Ruhe</span></div>
+      <div class="cell"><div class="spbed"><div class="sp is-hover" style="right: auto; left: 43px;"><i></i></div></div><span class="cap">Hover</span></div>
+      <div class="cell"><div class="spbed"><div class="sp is-drag" style="right: auto; left: 43px;"><i></i><b>420 px</b></div></div><span class="cap">Ziehen</span></div>
+      <div class="cell"><div class="spbed"><div class="sp is-focus" style="right: auto; left: 43px;"><i></i></div></div><span class="cap">Fokus, Pfeile ±16 px</span></div>
+    </div>
+  </div>
+  <div>
+    <h3>Neue Farben</h3>
+    <div class="line">
+      <div class="cell"><div class="sw" style="background: var(--acct-google);"></div><span class="cap">--acct-google</span></div>
+      <div class="cell"><div class="sw" style="background: var(--acct-google-soft);"></div><span class="cap">-soft</span></div>
+      <div class="cell"><div class="sw" style="background: var(--acct-icloud);"></div><span class="cap">--acct-icloud</span></div>
+      <div class="cell"><div class="sw" style="background: var(--acct-icloud-soft);"></div><span class="cap">-soft</span></div>
+      <div class="cell"><div class="sw" style="background: var(--acct-webde);"></div><span class="cap">--acct-webde</span></div>
+      <div class="cell"><div class="sw" style="background: var(--acct-webde-soft);"></div><span class="cap">-soft</span></div>
+      <div class="cell"><div class="sw" style="background: var(--hl);"></div><span class="cap">--hl</span></div>
+      <div class="cell"><div class="sw" style="background: var(--row-hover);"></div><span class="cap">--row-hover</span></div>
+    </div>
+  </div>
+</div>
+<div class="mc zs" data-theme="light">
+  <h2>Hell</h2>
+  <div>
+    <h3>Kontenschiene · Kachel 40 px, Radius 10</h3>
+    <div class="railbed">
+      <div class="cell"><button class="rl-compose" aria-label="Neue Nachricht"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"></path></svg></button><span class="cap">Neu</span></div>
+      <div class="cell"><button class="rl-compose is-hover" aria-label="Neue Nachricht"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"></path></svg></button><span class="cap">Neu, Hover</span></div>
+      <div class="cell"><button class="rl-tile acct--google"><span class="rl-ini">GO</span></button><span class="cap">Ruhe</span></div>
+      <div class="cell"><button class="rl-tile acct--google is-hover"><span class="rl-ini">GO</span></button><span class="cap">Hover</span></div>
+      <div class="cell"><button class="rl-tile acct--google is-active"><span class="rl-ini">GO</span></button><span class="cap">Gedrückt</span></div>
+      <div class="cell"><button class="rl-tile acct--google is-focus"><span class="rl-ini">GO</span></button><span class="cap">Fokus</span></div>
+      <div class="cell" style="position: relative; padding-left: 10px;"><button class="rl-tile acct--google is-on"><span class="rl-ini">GO</span><span class="rl-badge">3</span></button><span class="cap">Aktiv, 3 neu</span></div>
+      <div class="cell"><button class="rl-tile acct--icloud"><span class="rl-ini">IC</span><span class="rl-stat rl-stat--busy"></span></button><span class="cap">Verbindet</span></div>
+      <div class="cell"><button class="rl-tile acct--webde is-off"><span class="rl-ini">WE</span><span class="rl-stat rl-stat--off"></span></button><span class="cap">Offline</span></div>
+      <div class="cell"><button class="rl-tile acct--webde is-off"><span class="rl-ini">WE</span><span class="rl-stat rl-stat--err">!</span></button><span class="cap">Fehler</span></div>
+    </div>
+  </div>
+  <div>
+    <h3>Ordner · Zeile 30 px, Einzug 16 px je Ebene (bis 3)</h3>
+    <div class="fdlbl">
+      <div class="fdbed">
+        <button class="fi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v4H3zM5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"></path></svg><span class="lb">Archiv</span><span class="n"></span></button>
+        <button class="fi is-hover"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3L10 14M21 3l-6.5 18-4-8.5L2 8.5z"></path></svg><span class="lb">Gesendet</span><span class="n"></span></button>
+        <button class="fi is-active"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">Kleinanzeigen</span><span class="n"></span></button>
+        <button class="fi is-focus"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">GitHub</span><span class="n"></span></button>
+        <button class="fi is-on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l2.5-7.5A2 2 0 0 1 7.4 4h9.2a2 2 0 0 1 1.9 1.5L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 13h5l1.5 2.5h5L16 13h5"></path></svg><span class="lb">Posteingang</span><span class="n">3</span></button>
+        <button class="fi has-unread"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5.5M12 16.5v.01"></path></svg><span class="lb">Spam</span><span class="n">9</span></button>
+        <button class="fi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v4h4"></path></svg><span class="lb">Entwürfe</span><span class="n n--total">2</span></button>
+        <button class="fi is-drop"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">Amazon</span><span class="n"></span></button>
+        <button class="fg-head acct--google"><svg class="tw is-open" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg><span class="dot"></span><span class="lb">Google</span><span class="n"></span></button>
+        <button class="fg-head acct--webde" style="margin-top: 0;"><svg class="tw" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg><span class="dot"></span><span class="lb">web.de</span><span class="err">Fehler</span><span class="n"></span></button>
+        <button class="fi" style="--lvl: 0;"><svg class="tw is-open" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">Depot</span><span class="n"></span></button>
+        <button class="fi" style="--lvl: 1;"><svg class="tw is-open" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">2025</span><span class="n"></span></button>
+        <button class="fi" style="--lvl: 2;"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">Steuer</span><span class="n"></span></button>
+        <button class="fi fi--more"><svg class="tw" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span class="lb">Eigene Ordner</span><span class="n">10</span></button>
+      </div>
+      <div class="fdcap">
+        <span>Ruhe</span><span>Hover</span><span>Gedrückt</span><span>Fokus (Ring innen)</span><span>Aktuell</span><span>Ungelesen: fett, Zahl</span><span>Entwürfe: Gesamtzahl, leise</span><span>Mail darübergezogen</span>
+        <span style="margin-top: 10px;">Kontogruppe offen</span><span>Zu, mit Fehler</span><span>Ebene 1, offen</span><span>Ebene 2</span><span>Ebene 3</span><span>Eigene Ordner, eingeklappt</span>
+      </div>
+    </div>
+  </div>
+  <div>
+    <h3>Zeile · 74 px bequem, 52 px kompakt</h3>
+    <div class="rowlbl">
+      <div class="listbed">
+          <div class="r acct--google ">
+            <span class="r-acct"></span>
+            <button class="r-dot" aria-label="Als ungelesen markieren"></button>
+            <span class="r-from"><span class="nm">cs-reply@amazon.de</span></span>
+            <span class="r-date">14:30</span>
+            <span class="r-subj">Rückforderung zu viel gezahlter Prime-Beiträge nach BGH-Urteil vom …</span>
+            <span class="r-marks">
+            </span>
+            <span class="r-snip">Guten Tag, vielen Dank, dass Sie uns bezüglich der Preiserhöhung …</span>
+          </div>
+          <div class="r acct--google is-unread">
+            <span class="r-acct"></span>
+            <button class="r-dot" aria-label="Als gelesen markieren"></button>
+            <span class="r-from"><span class="nm">Instaffo</span></span>
+            <span class="r-date">08:24</span>
+            <span class="r-subj">Könnte gut zu dir passen: Softwarearchitekt:in tomedo</span>
+            <span class="r-marks">
+            </span>
+            <span class="r-snip">Dieser Job könnte gut zu dir passen Hey Timotheus, wir haben die Stelle b…</span>
+          </div>
+          <div class="r acct--google is-hover">
+            <span class="r-acct"></span>
+            <button class="r-dot is-hover" aria-label="Als ungelesen markieren"></button>
+            <span class="r-from"><span class="nm">cs-reply@amazon.de</span><span class="r-cnt">2</span></span>
+            <span class="r-date">13:52</span>
+            <span class="r-subj">Ihre Anfrage bei Amazon.de</span>
+            <span class="r-marks">
+            </span>
+            <span class="r-snip">Guten Tag, vielen Dank für das freundliche Gespräch. Ich schicke Ihnen al…</span>
+          </div>
+          <div class="r acct--icloud is-active">
+            <span class="r-acct"></span>
+            <button class="r-dot" aria-label="Als ungelesen markieren"></button>
+            <span class="r-from"><span class="nm">Die Linke Michael Grüber</span></span>
+            <span class="r-date">13:59</span>
+            <span class="r-subj">Die Linke Wiesbaden Rundmail</span>
+            <span class="r-marks">
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"></path></svg>
+            </span>
+            <span class="r-snip">Liebe Genoss:innen, uns stehen ereignisreiche Tage bevor. Anfang Dezember …</span>
+          </div>
+          <div class="r acct--google is-sel">
+            <span class="r-acct"></span>
+            <button class="r-dot" aria-label="Als ungelesen markieren"></button>
+            <span class="r-from"><span class="nm">Riot Games</span></span>
+            <span class="r-date">17:13</span>
+            <span class="r-subj">Login Code: 915755</span>
+            <span class="r-marks">
+            </span>
+            <span class="r-snip">Sign-in Code Here's your sign-in code: 915755 This code will expire soon.</span>
+          </div>
+          <div class="r acct--webde is-multi">
+            <span class="r-acct"></span>
+            <span class="r-cb is-on" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+            <span class="r-from"><span class="nm">Amazon.de</span></span>
+            <span class="r-date">13:19</span>
+            <span class="r-subj">Bestellt: „Fida Retrieverleine mit…“ und 1 mehr Artikel</span>
+            <span class="r-marks">
+              <svg class="ic star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"></path></svg>
+            </span>
+            <span class="r-snip">Meine Bestellungen https://www.amazon.de/gp/css/order-history?ref_=fe…</span>
+          </div>
+          <div class="r acct--icloud">
+            <span class="r-acct"></span>
+            <button class="r-dot" aria-label="Als ungelesen markieren"></button>
+            <span class="r-from"><span class="nm">noreply@deutschebahn.com</span></span>
+            <span class="r-date">09:53</span>
+            <span class="r-subj">Buchungsbestätigung Deutsche Bahn (Auftrag: 970486644102)</span>
+            <span class="r-marks">
+              <span class="r-tag"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5V12l3 2"></path></svg>bis Mo., 08:00</span>
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"></path></svg>
+            </span>
+            <span class="r-snip">DB - Buchungsbestätigung --&gt; Hier Ihre Buchungsbestätigung. Hallo H…</span>
+          </div>
+          <div class="r acct--icloud is-focus">
+            <span class="r-acct"></span>
+            <button class="r-dot" aria-label="Als ungelesen markieren"></button>
+            <span class="r-from"><span class="nm">post@slingailu.de</span></span>
+            <span class="r-date">11:34</span>
+            <span class="r-subj">Rechnung und Versand</span>
+            <span class="r-marks">
+              <span class="r-tag r-tag--back"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3"></path></svg>Wieder da</span>
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"></path></svg>
+            </span>
+            <span class="r-snip">Hallo Timotheus Stotz, deine Bestellung ist jetzt abgeschlossen, nochmal …</span>
+          </div>
+      </div>
+      <div class="rowcap">
+        <span style="height: 74px;">Gelesen, Ruhe</span><span style="height: 74px;">Ungelesen: Punkt, fett</span><span style="height: 74px;">Hover, Punkt zeigt Ring</span><span style="height: 74px;">Gedrückt</span><span style="height: 74px;">Ausgewählt</span><span style="height: 74px;">Mehrfach: Häkchen statt Punkt</span><span style="height: 74px;">Zurückgestellt</span><span style="height: 74px;">Wieder da, Fokus</span>
+      </div>
+    </div>
+  </div>
+  <div>
+    <h3>Suchfeld und Abruf · 36 px</h3>
+    <div style="display: flex; flex-direction: column; gap: 10px; width: 372px;">
+      <div style="display: flex; gap: 8px;"><div class="sf"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"></path></svg><span class="ph">Durchsuchen</span><span class="lbl-k">Strg F</span></div><button class="btn btn--icon rf mv-spin" aria-label="Jetzt abrufen"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5"></path></svg></span></button></div>
+      <div style="display: flex; gap: 8px;"><div class="sf is-hover"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"></path></svg><span class="ph">Durchsuchen</span><span class="lbl-k">Strg F</span></div><button class="btn btn--icon rf mv-spin is-hover" aria-label="Jetzt abrufen"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5"></path></svg></span></button></div>
+      <div style="display: flex; gap: 8px;"><div class="sf is-focus"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"></path></svg><span class="val"><span class="tok"><i>von:</i>amazon</span><span class="tok"><i>hat:</i>anhang</span><span>Prime</span><span class="caret"></span></span><button class="clr" aria-label="Suche leeren"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div><button class="btn btn--icon rf" aria-label="Jetzt abrufen"><span class="icw"><svg class="ic is-spin" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5"></path></svg></span></button></div>
+      <div style="display: flex; gap: 16px; padding: 4px 0 0 2px;">
+        <span class="sync"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Aktuell</span>
+        <span class="sync sync--busy"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7"></path></svg>Wird abgerufen …</span>
+        <span class="sync sync--err"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5.5M12 16.5v.01"></path></svg>web.de offline</span>
+      </div>
+      <span class="cap" style="text-align: left;">Ruhe · Hover (Rahmen dunkler, Pfeil dreht 180°) · Fokus mit Kürzeln als Marken, Abruf läuft · Status rechts in der Zeile darunter</span>
+    </div>
+  </div>
+  <div>
+    <h3>Trenner Liste | Lesebereich · Griff 9 px, Linie 1 px</h3>
+    <div class="line">
+      <div class="cell"><div class="spbed"><div class="sp" style="right: auto; left: 43px;"><i></i></div></div><span class="cap">Ruhe</span></div>
+      <div class="cell"><div class="spbed"><div class="sp is-hover" style="right: auto; left: 43px;"><i></i></div></div><span class="cap">Hover</span></div>
+      <div class="cell"><div class="spbed"><div class="sp is-drag" style="right: auto; left: 43px;"><i></i><b>420 px</b></div></div><span class="cap">Ziehen</span></div>
+      <div class="cell"><div class="spbed"><div class="sp is-focus" style="right: auto; left: 43px;"><i></i></div></div><span class="cap">Fokus, Pfeile ±16 px</span></div>
+    </div>
+  </div>
+  <div>
+    <h3>Neue Farben</h3>
+    <div class="line">
+      <div class="cell"><div class="sw" style="background: var(--acct-google);"></div><span class="cap">--acct-google</span></div>
+      <div class="cell"><div class="sw" style="background: var(--acct-google-soft);"></div><span class="cap">-soft</span></div>
+      <div class="cell"><div class="sw" style="background: var(--acct-icloud);"></div><span class="cap">--acct-icloud</span></div>
+      <div class="cell"><div class="sw" style="background: var(--acct-icloud-soft);"></div><span class="cap">-soft</span></div>
+      <div class="cell"><div class="sw" style="background: var(--acct-webde);"></div><span class="cap">--acct-webde</span></div>
+      <div class="cell"><div class="sw" style="background: var(--acct-webde-soft);"></div><span class="cap">-soft</span></div>
+      <div class="cell"><div class="sw" style="background: var(--hl);"></div><span class="cap">--hl</span></div>
+      <div class="cell"><div class="sw" style="background: var(--row-hover);"></div><span class="cap">--row-hover</span></div>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>

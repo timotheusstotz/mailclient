@@ -138,6 +138,37 @@ export function textToHtml(text: string): string {
   )
 }
 
+/**
+ * Reiner Text fuer den Lesebereich: wie textToHtml, nur dass zitierte Zeilen
+ * (">") zu einem Block mit Strich links werden. Die erste Zitatebene verliert
+ * ihr ">", tiefere behalten es. Zeilenumbrueche bleiben Text - der Lesebereich
+ * zeigt sie mit white-space: pre-line.
+ */
+export function textToReadingHtml(text: string): string {
+  let html = ''
+  let quote: string[] = []
+  // Ein Zitatblock bricht selbst um: vor und nach ihm entfaellt der Zeilenumbruch.
+  let afterBlock = true
+  const flush = (): void => {
+    if (!quote.length) return
+    html += `<span class="rv-quote">${textToHtml(quote.join('\n'))}</span>`
+    quote = []
+    afterBlock = true
+  }
+  for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
+    const quoted = /^\s*>\s?(.*)$/.exec(line)
+    if (quoted) {
+      quote.push(quoted[1])
+      continue
+    }
+    flush()
+    html += (afterBlock ? '' : '\n') + textToHtml(line)
+    afterBlock = false
+  }
+  flush()
+  return html
+}
+
 /** Reiner Text fuer den Editor: wie textToHtml, aber Zeilenumbrueche werden zu <br>,
  *  weil der Editor (contentEditable) sie sonst zu Leerzeichen zusammenzieht. */
 export function textToEditorHtml(text: string): string {

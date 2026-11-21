@@ -1,0 +1,1346 @@
+/*
+  Die linke Seite: Kontenschiene, Ordnerspalte, Nachrichtenliste mit Suche und
+  Abrufstand, der Trenner zum Lesebereich und der Lesebereich bei mehreren
+  ausgewählten Mails. Quelle ist der Entwurf in docs/design/liste (list.css
+  dort, HANDOFF.md); er baut auf docs/design/leseansicht auf.
+
+  Klassen tragen das Präfix lv-, damit sie nicht mit den alten globalen
+  Namen (.btn, .menu) zusammenstoßen. Knöpfe und Menüs kommen aus reader.css
+  (rv-btn, rv-menu, rv-mi), Farben aus app.css, Dauer und Kurve aus
+  interaction.css. Die Kontofarbe setzt der Code je Element als --a, --a-soft
+  und --a-ini (lib/accountTone.ts).
+
+  Zustände hängen an echten Attributen: aria-pressed, aria-current,
+  aria-selected, aria-expanded, data-unread. Bewegung steht unter
+  prefers-reduced-motion: no-preference; ohne sie wechseln nur Farben.
+*/
+
+@keyframes lv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ------------------------------------------------------------ Kontenschiene */
+
+.lv-rail {
+  min-height: 0;
+  background: var(--surface-2);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 10px;
+  position: relative;
+  z-index: 2;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.lv-compose {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  margin-bottom: 2px;
+  border-radius: 10px;
+  border: 1px solid var(--accent-line);
+  background: transparent;
+  color: var(--accent-ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) linear,
+    border-color var(--dur-1) linear,
+    transform var(--dur-1) var(--ease);
+}
+.lv-rail-sep {
+  width: 24px;
+  height: 1px;
+  flex: none;
+  margin: 4px 0;
+  background: var(--line-strong);
+}
+.lv-tile {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-2);
+  position: relative;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) linear,
+    color var(--dur-1) linear,
+    transform var(--dur-1) var(--ease);
+}
+/* Die Ansicht vorn: Fläche und ein Balken an der Kante der Schiene. */
+.lv-tile[aria-pressed='true'] {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+.lv-tile[aria-pressed='true']::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 10px;
+  width: 3px;
+  height: 20px;
+  border-radius: 0 3px 3px 0;
+  background: var(--ink);
+}
+.lv-ini {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--a-soft, var(--surface-3));
+  color: var(--a-ini, var(--ink));
+  display: grid;
+  place-items: center;
+  font: 700 11.5px/1 var(--sans);
+  letter-spacing: 0.02em;
+}
+.lv-tile[data-state='off'] .lv-ini,
+.lv-tile[data-state='err'] .lv-ini {
+  opacity: 0.55;
+}
+.lv-badge {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: 700 10.5px/18px var(--sans);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--surface-2);
+}
+.lv-tile[aria-pressed='true'] .lv-badge {
+  box-shadow: 0 0 0 2px var(--surface-3);
+}
+/* Verbindet, offline, Fehler: ein Punkt unten rechts. */
+.lv-stat {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--surface-2);
+  display: grid;
+  place-items: center;
+}
+.lv-stat--busy {
+  background: var(--surface-2);
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--ink-2);
+  box-shadow: none;
+  animation: lv-spin 900ms linear infinite;
+}
+.lv-stat--off {
+  background: var(--ink-3);
+}
+.lv-stat--off::after {
+  content: '';
+  width: 6px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--surface-2);
+}
+.lv-stat--err {
+  background: var(--danger);
+  color: var(--surface-2);
+  font: 800 10px/1 var(--sans);
+}
+.lv-add {
+  border: 1px dashed var(--line-strong);
+  color: var(--ink-3);
+}
+.lv-grow {
+  flex: 1;
+}
+@media (hover: hover) {
+  .lv-compose:hover {
+    background: var(--accent-soft);
+  }
+  .lv-tile:hover {
+    background: var(--surface-hover);
+    color: var(--ink);
+  }
+  .lv-tile[aria-pressed='true']:hover {
+    background: var(--surface-3);
+  }
+  .lv-add:hover {
+    border-color: var(--line-hover);
+  }
+}
+.lv-tile:active {
+  background: var(--surface-pressed);
+}
+.lv-compose:active {
+  background: var(--accent-soft);
+  border-color: var(--accent-ink);
+}
+
+/* ------------------------------------------------------------ Ordnerspalte */
+
+.lv-fd {
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-2);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.lv-fd-head {
+  height: 56px;
+  flex: none;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.lv-fd-head b {
+  font: 650 14px/1.2 var(--sans);
+  color: var(--ink);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-fd-head span {
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-fd-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.lv-fg {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 10px;
+}
+
+.lv-fi {
+  --lvl: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 30px;
+  flex: none;
+  padding: 0 10px 0 calc(24px + var(--lvl) * 16px);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  font: 500 13.5px/1 var(--sans);
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  transition:
+    background-color var(--dur-1) linear,
+    color var(--dur-1) linear,
+    transform var(--dur-1) var(--ease);
+}
+.lv-fi > svg[data-icon] {
+  flex: none;
+  color: var(--ink-3);
+  transition: color var(--dur-1) linear;
+}
+.lv-fi-lb {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+/* Zahlen bewusst nicht im Akzent: eine lange Liste bleibt ruhig. */
+.lv-fi-n {
+  font: 600 12px/1 var(--sans);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.lv-fi-n--total {
+  font-weight: 400;
+  color: var(--ink-3);
+}
+.lv-fi[data-unread] {
+  color: var(--ink);
+  font-weight: 600;
+}
+.lv-fi[data-unread] > svg[data-icon] {
+  color: var(--ink-2);
+}
+.lv-fi[aria-current='page'] {
+  background: var(--selected);
+  color: var(--ink);
+  font-weight: 600;
+}
+.lv-fi[aria-current='page'] > svg[data-icon],
+.lv-fi[aria-current='page'] .lv-fi-n {
+  color: var(--ink);
+}
+.lv-fi--more,
+.lv-fi--more .lv-fi-n {
+  color: var(--ink-3);
+}
+/* Der Pfeil in der Einrückung: bei "Eigene Ordner" im Knopf, bei einem Ordner mit Unterordnern daneben. */
+.lv-fi > .lv-tw-i {
+  position: absolute;
+  left: calc(6px + var(--lvl) * 16px);
+  top: 8px;
+}
+.lv-tw-i {
+  flex: none;
+  color: var(--ink-3);
+  stroke-width: 2;
+}
+.lv-fi-wrap {
+  position: relative;
+  flex: none;
+}
+.lv-tw {
+  position: absolute;
+  left: calc(2px + var(--lvl) * 16px);
+  top: 4px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.lv-fd-sep {
+  height: 1px;
+  flex: none;
+  margin: 5px 10px 5px 24px;
+  background: var(--line);
+}
+
+.lv-fg-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 30px;
+  flex: none;
+  padding: 0 10px 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  font: 650 12.5px/1 var(--sans);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) linear,
+    color var(--dur-1) linear;
+}
+.lv-fg-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 3px;
+  background: var(--a, var(--ink-3));
+}
+.lv-fg-head .lv-fi-n {
+  color: var(--ink-3);
+}
+.lv-fg-err {
+  font: 600 12px/1 var(--sans);
+  color: var(--danger);
+}
+
+@media (hover: hover) {
+  .lv-fi:hover,
+  .lv-fg-head:hover,
+  .lv-fi-wrap:has(.lv-tw:hover) .lv-fi {
+    background: var(--surface-hover);
+    color: var(--ink);
+  }
+  .lv-fi[aria-current='page']:hover {
+    background: var(--selected);
+  }
+  .lv-fi:hover > svg[data-icon],
+  .lv-fg-head:hover .lv-tw-i,
+  .lv-tw:hover .lv-tw-i {
+    color: var(--ink);
+  }
+}
+.lv-fi:active,
+.lv-fg-head:active {
+  background: var(--surface-pressed);
+}
+.lv-fi:focus-visible,
+.lv-fg-head:focus-visible,
+.lv-tw:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ---------------------------------------------- Ordnermenü im schmalen Fenster */
+
+.rv-menu.lv-menu-folders {
+  left: 0;
+  right: auto;
+  width: 300px;
+  transform-origin: top left;
+}
+.lv-menu-folders-scroll {
+  max-height: min(640px, calc(100vh - 140px));
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.lv-menu-folders .lv-fi {
+  height: 32px;
+}
+.lv-menu-folders .lv-fg {
+  margin-top: 6px;
+}
+
+/* ------------------------------------------------------------ Nachrichtenliste */
+
+.lv-ls {
+  min-width: 0;
+  min-height: 0;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+}
+.lv-ls-head {
+  height: 56px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 6;
+}
+
+/* Das Suchfeld; der Text steht durchsichtig über einer Spiegelschicht mit den Kürzeln. */
+.lv-sf {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-3);
+  cursor: text;
+  transition:
+    border-color var(--dur-1) linear,
+    box-shadow var(--dur-1) linear;
+}
+.lv-sf > svg[data-icon] {
+  flex: none;
+}
+.lv-sf[data-focus] {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.lv-sf-box {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+.lv-sf-input,
+.lv-sf-mirror {
+  font: 400 13.5px/1 var(--sans);
+  letter-spacing: normal;
+}
+.lv-sf-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--ink);
+}
+.lv-sf-input:focus-visible {
+  outline: none;
+}
+.lv-sf-input::placeholder {
+  color: var(--ink-3);
+}
+.lv-sf-input::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.lv-sf-mirror {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  white-space: pre;
+  color: var(--ink);
+  pointer-events: none;
+}
+/* Ein erkanntes Kürzel: Grund hinter dem Text, ohne die Breiten zu ändern - sonst stünde der Cursor daneben. */
+.lv-tok {
+  background: var(--surface-3);
+  border-radius: 3px;
+  padding: 3px 0;
+  box-shadow: 0 0 0 1px var(--surface-3);
+  -webkit-text-stroke: 0.35px currentColor;
+}
+.lv-tok i {
+  font-style: normal;
+  color: var(--ink-3);
+  -webkit-text-stroke: 0;
+}
+.lv-sf-clear {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-3);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) linear,
+    color var(--dur-1) linear;
+}
+@media (hover: hover) {
+  .lv-sf:not([data-focus]):hover {
+    border-color: var(--line-hover);
+  }
+  .lv-sf-clear:hover {
+    background: var(--surface-hover);
+    color: var(--ink);
+  }
+}
+
+/* Die Hilfe mit den Suchkürzeln: das Menü der Leseansicht, unter dem Feld. */
+.rv-menu.lv-sh {
+  top: 52px;
+  left: 12px;
+  right: 12px;
+  width: auto;
+  transform-origin: top left;
+}
+.lv-sh .rv-mi {
+  height: 34px;
+  gap: 12px;
+}
+.lv-sh-code {
+  min-width: 104px;
+  font: 600 13px/1 var(--sans);
+  color: var(--accent-ink);
+}
+.lv-sh-code i {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+.lv-sh-what {
+  color: var(--ink-2);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-sh-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px 10px 4px;
+  border-top: 1px solid var(--menu-line);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.lv-busy {
+  animation: lv-spin 900ms linear infinite;
+}
+
+/* Die Unterzeile: was gezeigt wird, und der Abrufstand. */
+.lv-sub {
+  height: 40px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 5;
+}
+.lv-title {
+  margin: 0;
+  font: 650 14px/1 var(--sans);
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.lv-meta {
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-sync-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  transition: opacity 240ms linear;
+}
+.lv-sync-wrap[data-hidden] {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 240ms linear,
+    visibility 0s linear 240ms;
+}
+.lv-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.lv-sync svg[data-icon] {
+  stroke-width: 2;
+}
+.lv-sync--err {
+  color: var(--danger);
+  font-weight: 600;
+}
+.rv-btn.lv-retry {
+  height: 26px;
+  padding: 0 8px;
+  gap: 5px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.rv-btn.lv-all {
+  height: 28px;
+  padding: 0 10px;
+}
+/* Im schmalen Fenster: der Titel als Knopf zum Ordnermenü. */
+.rv-btn.lv-vt {
+  height: 30px;
+  margin-left: -6px;
+  padding: 0 8px 0 6px;
+  gap: 6px;
+  border-color: transparent;
+  background: transparent;
+  font: 650 14px/1 var(--sans);
+}
+.rv-btn.lv-vt[aria-expanded='true'] {
+  background: var(--surface-pressed);
+}
+@media (hover: hover) {
+  .rv-btn.lv-vt:hover {
+    background: var(--surface-hover);
+  }
+}
+.rv-btn.lv-vt svg[data-icon]:not(.rv-chev) {
+  color: var(--ink-3);
+}
+
+/* Die Zeilen */
+.lv-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  position: relative;
+}
+.lv-r {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 10px;
+  row-gap: 3px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 14px 11px 30px;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  font: 400 13.5px/1.25 var(--sans);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  transition:
+    background-color var(--dur-1) linear,
+    transform var(--dur-1) var(--ease);
+}
+.lv-r-from {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.lv-r-nm {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-r-cnt {
+  flex: none;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font: 600 11px/16px var(--sans);
+  color: var(--ink-2);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Die Zeile mit offenem Kontextmenue: markiert, ohne geoeffnet zu sein. */
+.lv-r[data-menu] {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.lv-r-date {
+  justify-self: end;
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lv-r-subj {
+  min-width: 0;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-r-marks {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-3);
+}
+.lv-r-marks > [role='img'] {
+  display: inline-grid;
+}
+.lv-r-star {
+  color: var(--star);
+}
+.lv-r-snip {
+  grid-column: 1 / -1;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-r-tag {
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 600 11.5px/1 var(--sans);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.lv-r-tag svg[data-icon] {
+  stroke-width: 2;
+}
+.lv-r-tag--back {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-ink);
+}
+.lv-r mark {
+  background: var(--hl);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+/* Die Rinne links: Punkt für ungelesen (ein Knopf), Kästchen in der Mehrfachauswahl. */
+.lv-dot {
+  position: absolute;
+  left: 5px;
+  top: 7px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.lv-dot::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition:
+    background-color var(--dur-1) linear,
+    box-shadow var(--dur-1) linear,
+    transform var(--dur-2) var(--ease);
+}
+.lv-r[data-unread='true'] .lv-dot::after {
+  background: var(--accent);
+}
+@media (hover: hover) {
+  .lv-dot:hover::after {
+    box-shadow: inset 0 0 0 1.5px var(--line-hover);
+  }
+  .lv-r[data-unread='true'] .lv-dot:hover::after {
+    box-shadow: none;
+  }
+}
+.lv-dot:focus-visible {
+  outline-offset: -2px;
+  border-radius: 50%;
+}
+.lv-cb {
+  position: absolute;
+  left: 8px;
+  top: 11px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid var(--line-hover);
+  display: grid;
+  place-items: center;
+  color: var(--on-accent);
+  cursor: pointer;
+}
+.lv-cb[data-on] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.lv-cb svg[data-icon] {
+  stroke-width: 2.6;
+}
+
+.lv-r[data-unread='true'] .lv-r-from {
+  color: var(--ink);
+  font-weight: 650;
+}
+.lv-r[data-unread='true'] .lv-r-subj {
+  font-weight: 600;
+}
+.lv-r[data-unread='true'] .lv-r-date {
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+/* Hover färbt nur; in der Zeile bewegt und erscheint nichts. */
+@media (hover: hover) {
+  .lv-r:hover {
+    background: var(--row-hover);
+  }
+}
+.lv-r:active {
+  background: var(--surface-pressed);
+}
+/* Offen oder angehakt: eine weiche Fläche, die die Linien ober- und unterhalb schluckt. */
+.lv-r[aria-selected='true'],
+.lv-r[aria-selected='true']:hover {
+  background: var(--accent-soft);
+  border-bottom-color: transparent;
+  box-shadow: 0 -1px 0 var(--accent-soft);
+}
+.lv-r[aria-selected='true'] .lv-r-from {
+  color: var(--ink);
+}
+.lv-r[aria-selected='true'] .lv-r-cnt {
+  border-color: var(--accent-line);
+}
+.lv-r:focus-visible,
+.lv-scroll[data-selecting] .lv-r[data-open] {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+/* Kompakt: zwei Zeilen, ohne Vorschau */
+.lv-ls[data-density='compact'] .lv-r {
+  padding: 7px 14px 8px 30px;
+  row-gap: 2px;
+}
+.lv-ls[data-density='compact'] .lv-dot {
+  top: 4px;
+}
+.lv-ls[data-density='compact'] .lv-cb {
+  top: 8px;
+}
+
+
+/* Leere Liste */
+.lv-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px 96px;
+}
+.lv-empty .rv-statenote {
+  max-width: 320px;
+  padding: 0;
+}
+.lv-empty .rv-mark svg[data-icon] {
+  width: 20px;
+  height: 20px;
+}
+.lv-empty .rv-mark.lv-mark--done {
+  background: var(--ics-bg);
+  color: var(--ics-ink);
+}
+
+/* ------------------------------------------- Trenner zwischen Liste und Lesebereich */
+
+.lv-sp {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -5px;
+  width: 9px;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  cursor: col-resize;
+  touch-action: none;
+}
+.lv-sp::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  background: var(--line);
+  transition:
+    background-color var(--dur-1) linear,
+    width var(--dur-1) linear,
+    left var(--dur-1) linear;
+}
+.lv-sp i {
+  position: relative;
+  width: 5px;
+  height: 32px;
+  border-radius: 3px;
+  background: var(--line-hover);
+  opacity: 0;
+  transition:
+    opacity var(--dur-1) linear,
+    background-color var(--dur-1) linear;
+}
+.lv-sp b {
+  position: absolute;
+  top: calc(50% - 40px);
+  left: 14px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--paper);
+  font: 600 12px/1 var(--sans);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.lv-sp[data-axis='y'] {
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: -5px;
+  width: auto;
+  height: 9px;
+  cursor: row-resize;
+}
+.lv-sp[data-axis='y']::before {
+  top: 4px;
+  bottom: auto;
+  left: 0;
+  right: 0;
+  width: auto;
+  height: 1px;
+}
+.lv-sp[data-axis='y'] i {
+  width: 32px;
+  height: 5px;
+}
+.lv-sp[data-axis='y'] b {
+  top: 14px;
+  left: calc(50% - 30px);
+}
+@media (hover: hover) {
+  .lv-sp:hover::before {
+    background: var(--line-hover);
+  }
+  .lv-sp:hover i {
+    opacity: 1;
+  }
+}
+.lv-sp[data-drag]::before {
+  background: var(--accent);
+  width: 2px;
+  left: 3.5px;
+}
+.lv-sp[data-axis='y'][data-drag]::before {
+  width: auto;
+  left: 0;
+  height: 2px;
+  top: 3.5px;
+}
+.lv-sp[data-drag] i {
+  opacity: 1;
+  background: var(--accent);
+}
+.lv-sp:focus-visible {
+  outline: none;
+}
+.lv-sp:focus-visible i {
+  opacity: 1;
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------- Lesebereich, solange mehrere ausgewählt sind */
+
+.lv-bk {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 24px 96px;
+}
+.lv-bk-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+}
+.lv-stack {
+  position: relative;
+  width: 320px;
+  max-width: 100%;
+  height: 96px;
+}
+.lv-sc {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  text-align: left;
+}
+/* Vorn die erste, dahinter kleiner und blasser die nächsten zwei. */
+.lv-sc:nth-last-child(3) {
+  top: 0;
+  transform: scale(0.9);
+  opacity: 0.55;
+}
+.lv-sc:nth-last-child(2) {
+  top: 14px;
+  transform: scale(0.95);
+  opacity: 0.8;
+}
+.lv-sc:last-child {
+  top: 30px;
+}
+.lv-sc-acc {
+  width: 3px;
+  align-self: stretch;
+  margin: 14px 0;
+  flex: none;
+  border-radius: 2px;
+  background: var(--a, var(--line-strong));
+}
+.lv-sc-t {
+  flex: 1;
+  min-width: 0;
+}
+.lv-sc-t b {
+  display: block;
+  font: 600 13.5px/1.3 var(--sans);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-sc-t span {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-bk h2 {
+  margin: 0;
+  font: 650 22px/1.27 var(--sans);
+  letter-spacing: -0.018em;
+  color: var(--ink);
+}
+.lv-bk p {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.lv-bk-keys {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.lv-bk-keys span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ------------------------------------------------------------------ Bewegung */
+
+@media (prefers-reduced-motion: no-preference) {
+  .lv-tile:active,
+  .lv-compose:active {
+    transform: scale(0.94);
+  }
+  .lv-fi:active,
+  .lv-fg-head:active {
+    transform: scale(0.99);
+  }
+  .lv-r:active {
+    transform: scale(0.995);
+  }
+  .lv-tw-i {
+    transition:
+      transform var(--dur-2) var(--ease),
+      color var(--dur-1) linear;
+  }
+  @media (hover: hover) {
+    .lv-r[data-unread='true'] .lv-dot:hover::after {
+      transform: scale(1.25);
+    }
+  }
+}
+/* Offen zeigt der Pfeil nach unten: ein Zustand, keine Bewegung. */
+[aria-expanded='true'] > .lv-tw-i {
+  transform: rotate(90deg);
+}
+
+/* Spinner tragen Bedeutung: sie drehen weiter, nur langsamer. */
+@media (prefers-reduced-motion: reduce) {
+  .lv-stat--busy,
+  .lv-busy {
+    animation-duration: 2.4s;
+  }
+}
+
+/*
+  Ziehen von Mails auf Ordner (Entwurf v2, docs/design/liste/HANDOFF.md):
+  gezogene Zeilen bei 45 %, Ordner ohne Platz fuer die Mails bei 38 %, ein
+  gueltiges Ziel in der Akzentflaeche, ein ungueltiges gestrichelt, eine
+  zugeklappte Gruppe zeigt beim Verweilen eine Linie, die sich in 600 ms fuellt.
+*/
+.lv-r[data-lifted] {
+  opacity: 0.45;
+}
+.lv-fi[data-dim],
+.lv-fg-head[data-dim] {
+  opacity: 0.38;
+}
+.lv-fi[data-drop='ok'] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  opacity: 1;
+}
+.lv-fi[data-drop='ok'] > svg[data-icon] {
+  color: var(--accent-ink);
+}
+.lv-fi[data-drop='no'],
+.lv-fg-head[data-drop='no'] {
+  outline: 1px dashed var(--line-hover);
+  outline-offset: -1px;
+  cursor: no-drop;
+}
+.lv-fi[data-spring],
+.lv-fg-head[data-spring] {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+.lv-fi[data-spring] .lv-tw-i,
+.lv-fg-head[data-spring] .lv-tw-i {
+  transform: rotate(45deg);
+}
+.lv-fi[data-spring]::after,
+.lv-fg-head[data-spring]::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+  transform-origin: left;
+  animation: lv-spring 600ms linear forwards;
+}
+@keyframes lv-spring {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Der Geist folgt dem Zeiger um +18/+12 px. */
+.lv-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 90;
+  width: 260px;
+  pointer-events: none;
+}
+.lv-ghost-back {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 52px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  transform: translate(6px, 6px);
+  opacity: 0.85;
+}
+.lv-ghost-card {
+  position: relative;
+  height: 52px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-pop);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 14px;
+}
+.lv-ghost-card b {
+  font: 600 13px/1.2 var(--sans);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-ghost-card > span:not(.lv-ghost-cnt) {
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lv-ghost-cnt {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: 700 12px/22px var(--sans);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.lv-ghost[data-refused] .lv-ghost-card {
+  border-color: var(--line);
+  opacity: 0.85;
+}
+.lv-ghost[data-refused] .lv-ghost-cnt {
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+.lv-ghost-note {
+  margin-top: 14px;
+  display: inline-block;
+  background: var(--ink);
+  color: var(--paper);
+  font: 500 12px/1.35 var(--sans);
+  padding: 7px 9px;
+  border-radius: 6px;
+  max-width: 260px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-fi[data-spring]::after,
+  .lv-fg-head[data-spring]::after {
+    animation: none;
+  }
+}

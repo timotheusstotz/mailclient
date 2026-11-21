@@ -27,7 +27,7 @@ import type {
 import { isRuleUsable, matchesRule } from '@shared/rules'
 import { isEmptySearch, matchesSearch, parseSearch, type ParsedSearch } from '@shared/search'
 import { buildThreadIndex, linkedIds, normalizeMessageId } from '@shared/threads'
-import { AccountConnection, describeError } from './imap'
+import { AccountConnection, describeError, type AttachmentData } from './imap'
 import { buildRawMessage, describeSmtpError, sendRaw, verifySmtp } from './smtp'
 import { Store, type SnoozeEntry } from './store'
 import { ImapFlow, type SearchObject } from 'imapflow'
@@ -555,6 +555,33 @@ export class MailService {
     await this.forEachGroup(items, (connection, folder, uids) => connection.move(folder, uids, targetFolder))
   }
 
+  /**
+   * Holt verschobene Mails in ihren alten Ordner zurueck. Im Zielordner haben
+   * sie neue UIDs; gefunden werden sie ueber ihre Message-ID. Mails ohne eine
+   * bleiben, wo sie sind. Liefert, wie viele zurueckgingen.
+   */
+  async undoMove(items: MessageSummary[], targetFolder: string): Promise<number> {
+    const groups = new Map<string, { accountId: AccountId; from: string; ids: string[] }>()
+    for (const item of items) {
+      const id = normalizeMessageId(item.messageId)
+      if (!id || item.folder === targetFolder) continue
+      const key = `${item.accountId}|${item.folder}`
+      const group = groups.get(key) ?? { accountId: item.accountId, from: item.folder, ids: [] }
+      group.ids.push(id)
+      groups.set(key, group)
+    }
+    let moved = 0
+    for (const group of groups.values()) {
+      const connection = this.connections.get(group.accountId)
+      if (!connection) continue
+      const uids = await connection.findByMessageIds(targetFolder, group.ids)
+      if (!uids.length) continue
+      await connection.move(targetFolder, uids, group.from)
+      moved += uids.length
+    }
+    return moved
+  }
+
   // ------------------------------------------------------ Zurueckstellen
 
   /**
@@ -713,10 +740,16 @@ export class MailService {
     folder: string,
     uid: number,
     partId: string
-  ): Promise<{ filename: string; contentType: string; data: Buffer } | null> {
+  ): Promise<AttachmentData | null> {
     const connection = this.connections.get(accountId)
     if (!connection) return null
     return connection.getAttachment(folder, uid, partId)
+  }
+
+  async getAttachments(accountId: AccountId, folder: string, uid: number): Promise<AttachmentData[] | null> {
+    const connection = this.connections.get(accountId)
+    if (!connection) return null
+    return connection.getAttachments(folder, uid)
   }
 
   // -------------------------------------------------------------- Regeln

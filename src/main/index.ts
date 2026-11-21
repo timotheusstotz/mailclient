@@ -360,6 +360,7 @@ function registerIpc(service: MailService): void {
   handle('messages:delete', (items: MessageSummary[]) => service.remove(items))
   handle('messages:archive', (items: MessageSummary[]) => service.archive(items))
   handle('messages:move', (items: MessageSummary[], target: string) => service.moveTo(items, target))
+  handle('messages:undoMove', (items: MessageSummary[], target: string) => service.undoMove(items, target))
 
   handle('messages:thread', (accountId: AccountId, folder: string, uid: number) =>
     service.getThread(accountId, folder, uid)
@@ -438,6 +439,26 @@ function registerIpc(service: MailService): void {
     }
   )
 
+  /*
+    Alle Anhaenge auf einmal: gefragt wird nach einem Ordner, nicht nach jeder
+    Datei. Ein Name, den es dort schon gibt, bekommt eine Nummer angehaengt,
+    statt die vorhandene Datei zu ueberschreiben.
+  */
+  handle('attachment:saveAll', async (accountId: AccountId, folder: string, uid: number) => {
+    const target = await dialog.showOpenDialog(mainWindow!, {
+      title: 'Alle Anhänge speichern',
+      properties: ['openDirectory', 'createDirectory']
+    })
+    const dir = target.filePaths[0]
+    if (target.canceled || !dir) return { saved: 0 }
+    const attachments = await service.getAttachments(accountId, folder, uid)
+    if (!attachments) return { saved: 0, error: 'Anhänge konnten nicht geladen werden.' }
+    for (const attachment of attachments) {
+      await fsp.writeFile(await freePath(dir, sanitizeFilename(attachment.filename)), attachment.data)
+    }
+    return { saved: attachments.length, path: dir }
+  })
+
   handle('attachment:open', async (accountId: AccountId, folder: string, uid: number, partId: string, filename: string) => {
     const attachment = await service.getAttachment(accountId, folder, uid, partId)
     if (!attachment) return { opened: false }
@@ -466,6 +487,21 @@ function registerIpc(service: MailService): void {
       })
     )
   })
+}
+
+/** "name.pdf", sonst "name (2).pdf", "name (3).pdf" ... - der erste Name, der im Ordner frei ist. */
+async function freePath(dir: string, filename: string): Promise<string> {
+  const dot = filename.lastIndexOf('.')
+  const stem = dot > 0 ? filename.slice(0, dot) : filename
+  const ext = dot > 0 ? filename.slice(dot) : ''
+  for (let n = 1; ; n++) {
+    const candidate = join(dir, n === 1 ? filename : `${stem} (${n})${ext}`)
+    const taken = await fsp.access(candidate).then(
+      () => true,
+      () => false
+    )
+    if (!taken) return candidate
+  }
 }
 
 /** Verhindert, dass ein praeparierter Dateiname aus dem temp-Ordner ausbricht. */

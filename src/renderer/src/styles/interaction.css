@@ -6,39 +6,55 @@
   Hover faerbt in 120 ms, Druecken senkt in 120 ms, Icons bewegen sich in 200 ms
   (Drehungen 280 ms). Bewegt werden nur transform und opacity; Hover aendert nie
   das Layout. Alles mit Bewegung steht unter prefers-reduced-motion: no-preference.
+  Die Werte stammen aus den Entwuerfen in docs/design/leseansicht und
+  docs/design/liste; was nur Liste und Seitenleiste betrifft (Zeilen, Ordner,
+  Kacheln, Punkt, Trenner), steht in list.css.
 */
 
 :root {
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-1: 120ms; /* Farbe, Druecken */
+  --dur-2: 200ms; /* Icon-Bewegungen, Anheben */
+  --dur-3: 280ms; /* Drehen, Kippen */
+  --dur-menu: 160ms;
 }
 
-/* Ein Fokusring, ueberall gleich: 2 px in der Akzentfarbe, 2 px Abstand. */
+/*
+  Die Hand ueber allem, was sich klicken laesst. Mit :where() ohne Gewicht:
+  eigene Zeiger wie beim Trenner oder beim Ziehen gehen vor.
+*/
+:where(button, a[href], select, summary, label[for], [role='button'], [role='option'], [role='menuitem'], [role='tab'], [draggable='true']) {
+  cursor: pointer;
+}
+:where(button, select)[disabled],
+:where([aria-disabled='true']) {
+  cursor: default;
+}
+
+/*
+  Ein Fokusring, ueberall gleich: 2 px in der Fokusfarbe, 2 px Abstand. Die
+  Rundung gilt nur fuer Elemente ohne eigene - :where() gibt ihr kein Gewicht.
+*/
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+:where(:focus-visible) {
   border-radius: 4px;
 }
-.row:focus-visible,
-.thread-item:focus-visible,
-.menu-item:focus-visible {
+.menu-item:focus-visible,
+[role='menuitem']:focus-visible {
   outline-offset: -2px;
 }
 
 /* ------------------------------------------------------------ Farbwechsel */
 
 .btn,
-.btn-compose,
-.refresh-btn,
-.rail-tile,
-.folder-item,
 .tab,
 .link-btn,
 .toast-action,
 .chip button,
 .domain button,
-.attachment-main,
-.attachment-save,
-.thread-item,
 .menu-item {
   transition:
     background-color 120ms var(--ease),
@@ -48,16 +64,10 @@
     filter 120ms var(--ease),
     transform 120ms var(--ease);
 }
-.row {
-  transition:
-    background-color 90ms var(--ease),
-    transform 120ms var(--ease);
-}
 
 /* Das Primaere wird beim Hover dunkler, nicht heller - es soll satter wirken, nicht verblassen. */
 @media (hover: hover) {
-  .btn-primary:hover:not(:disabled),
-  .btn-compose:hover {
+  .btn-primary:hover:not(:disabled) {
     filter: brightness(0.92);
   }
   .link-btn:hover {
@@ -73,29 +83,22 @@
 @media (prefers-reduced-motion: no-preference) {
   /* Knoepfe mit Text sinken und werden minimal kleiner. */
   .btn:not(.btn-icon):active:not(:disabled),
-  .refresh-btn:active,
   .tab:active,
   .toast-action:active,
-  .link-btn:active,
-  .attachment-main:active {
+  .link-btn:active {
     transform: translateY(1px) scale(0.98);
   }
 
   /* Reine Icon-Knoepfe schrumpfen. */
   .btn-icon:active:not(:disabled),
-  .btn-compose:active,
-  .rail-tile:active,
-  .attachment-save:active,
-  .row-dot:active,
+  .lv-dot:active,
+  .lv-sf-clear:active,
   .chip button:active,
   .domain button:active {
     transform: scale(0.94);
   }
 
-  /* Zeilen geben kaum nach - sie werden oft und schnell geklickt. */
-  .row:active,
-  .folder-item:active,
-  .thread-item:active,
+  /* Eintraege in Menues geben kaum nach - sie werden oft und schnell geklickt. */
   .menu-item:active:not(:disabled) {
     transform: scale(0.995);
   }
@@ -103,74 +106,102 @@
   /*
     Jedes Icon hat eine eigene kleine Bewegung, wenn sein Knopf unter dem
     Zeiger ist. Ordner und Konten bewegen sich nicht: durch die klickt man
-    sich dauernd, da wuerde es unruhig.
+    sich dauernd, da wuerde es unruhig. In Menues ruecken alle Icons gleich
+    um 2 px nach rechts, statt jedes seine eigene Bewegung zu machen. Was
+    gerade nicht geht (aria-disabled), bewegt sich auch nicht.
   */
   button svg[data-icon] {
-    transition: transform 200ms var(--ease);
+    transition: transform var(--dur-2) var(--ease);
   }
 
   @media (hover: hover) {
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='reply'],
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='reply-all'] {
-      transform: translateX(-2px);
+    :is(button:not(:disabled, [aria-disabled='true'], .lv-fi, .lv-fg-head, .lv-sf-clear, [role='menuitem'])):hover {
+      & svg[data-icon='reply'],
+      & svg[data-icon='reply-all'],
+      & svg[data-icon='undo'] {
+        transform: translateX(-2px);
+      }
+      & svg[data-icon='forward'],
+      & svg[data-icon='sent'],
+      & svg[data-icon='folder-move'] {
+        transform: translateX(3px);
+      }
+      & svg[data-icon='compose'] {
+        transform: rotate(-16deg) translate(-1px, -1px);
+        transition-duration: var(--dur-3);
+      }
+      & svg[data-icon='refresh']:not(.lv-busy),
+      & svg[data-icon='reset'] {
+        transform: rotate(180deg);
+        transition-duration: var(--dur-3);
+      }
+      & svg[data-icon='trash'] {
+        animation: icon-wobble 460ms var(--ease);
+      }
+      & svg[data-icon='paperclip'],
+      & svg[data-icon='envelope-open'],
+      & svg[data-icon='mail-unread'],
+      & svg[data-icon='image'] {
+        transform: translateY(-2px);
+      }
+      & svg[data-icon='download'],
+      & svg[data-icon='archive'] {
+        transform: translateY(2px);
+      }
+      /* Der Stern dreht sich um eine Zacke weiter. */
+      & svg[data-icon='star'],
+      & svg[data-icon='star-filled'] {
+        transform: rotate(72deg);
+        transition-duration: var(--dur-3);
+      }
+      & svg[data-icon='clock'] {
+        transform: rotate(-20deg);
+        transition-duration: var(--dur-3);
+      }
+      & svg[data-icon='settings'] {
+        transform: rotate(60deg);
+        transition-duration: var(--dur-3);
+      }
+      & svg[data-icon='close'],
+      & svg[data-icon='plus'] {
+        transform: rotate(90deg);
+        transition-duration: var(--dur-3);
+      }
+      &:not([aria-expanded='true']) svg[data-icon='chevron'] {
+        transform: translateY(1px);
+      }
     }
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='forward'],
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='sent'] {
-      transform: translateX(3px);
-    }
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='compose'] {
-      transform: rotate(-16deg) translate(-1px, -1px);
-      transition-duration: 280ms;
-    }
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='refresh']:not(.spin) {
-      transform: rotate(180deg);
-      transition-duration: 280ms;
-    }
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='trash'] {
+
+    /* Das Kreuz im Suchfeld wackelt einmal, statt sich zu drehen. */
+    .lv-sf-clear:hover svg[data-icon='close'] {
       animation: icon-wobble 460ms var(--ease);
     }
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='paperclip'] {
-      transform: translateY(-2px);
-    }
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='download'],
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='archive'] {
-      transform: translateY(2px);
-    }
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='star'],
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='star-filled'] {
-      transform: scale(1.15);
-    }
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='envelope-open'] {
-      transform: translateY(-1px);
-    }
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='clock'] {
-      transform: rotate(30deg);
-      transition-duration: 280ms;
-    }
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='settings'] {
-      transform: rotate(60deg);
-      transition-duration: 280ms;
-    }
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='close'],
-    button:not(:disabled):not(.folder-item):hover svg[data-icon='plus'] {
-      transform: rotate(90deg);
-      transition-duration: 280ms;
+
+    /* Der Pfeil einer Gruppe dreht sich beim Aufklappen; dabei soll ihn der Hover nicht zuruecksetzen. */
+    [role='menuitem']:not(:disabled):not([aria-disabled='true']):hover svg[data-icon]:not(.lv-tw-i) {
+      transform: translateX(2px);
     }
   }
 }
 
+/* Ein offenes Menue dreht den Pfeil seines Ausloesers um - ein Zustand, keine Bewegung. */
+button[aria-expanded='true'] svg[data-icon='chevron'],
+button[aria-expanded='true']:hover svg[data-icon='chevron'] {
+  transform: rotate(180deg);
+}
+
+/* Der Papierkorb wackelt einmal. */
 @keyframes icon-wobble {
-  0%,
-  100% {
-    transform: rotate(0);
+  25% {
+    transform: rotate(-14deg);
   }
-  20% {
-    transform: rotate(-12deg);
+  55% {
+    transform: rotate(10deg);
   }
-  45% {
-    transform: rotate(9deg);
-  }
-  70% {
+  80% {
     transform: rotate(-5deg);
+  }
+  100% {
+    transform: none;
   }
 }

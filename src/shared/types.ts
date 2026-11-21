@@ -177,10 +177,16 @@ export interface Settings {
   threadView: boolean
   /** Textbausteine fuer den Verfassen-Dialog */
   templates: MailTemplate[]
-  /** Breite der Nachrichtenliste in px, wenn der Lesebereich rechts steht */
+  /** Breite der Nachrichtenliste in px, wenn der Lesebereich rechts steht; 0 = je nach Fenster 384 oder 440 */
   listWidth: number
   /** Hoehe der Liste in px, wenn der Lesebereich unten steht; 0 = halbe-halbe */
   listHeight: number
+  /**
+   * Auf- und zugeklappte Gruppen der Ordnerspalte, nur die vom Nutzer geänderten.
+   * Schlüssel: "account:<id>" (die Gruppe eines Kontos), "own:<id>" (seine eigenen
+   * Ordner unter "Alle Konten"), "folder:<id>|<Pfad>" (Unterordner); Wert: offen.
+   */
+  folderGroups: Record<string, boolean>
 }
 
 export interface MailTemplate {

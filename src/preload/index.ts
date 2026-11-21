@@ -56,6 +56,9 @@ const api = {
     archive: (items: MessageSummary[]): Promise<void> => ipcRenderer.invoke('messages:archive', items),
     move: (items: MessageSummary[], target: string): Promise<void> =>
       ipcRenderer.invoke('messages:move', items, target),
+    /** Holt nach `target` verschobene Mails in ihre alten Ordner zurueck; liefert die Anzahl. */
+    undoMove: (items: MessageSummary[], target: string): Promise<number> =>
+      ipcRenderer.invoke('messages:undoMove', items, target),
     /** Die Unterhaltung, zu der eine Mail gehoert, aelteste zuerst. */
     thread: (accountId: AccountId, folder: string, uid: number): Promise<MessageSummary[]> =>
       ipcRenderer.invoke('messages:thread', accountId, folder, uid),
@@ -111,6 +114,13 @@ const api = {
       filename: string
     ): Promise<{ opened: boolean; error?: string }> =>
       ipcRenderer.invoke('attachment:open', accountId, folder, uid, partId, filename),
+    /** Fragt nach einem Ordner und legt alle Anhaenge der Mail dort ab. */
+    saveAll: (
+      accountId: AccountId,
+      folder: string,
+      uid: number
+    ): Promise<{ saved: number; path?: string; error?: string }> =>
+      ipcRenderer.invoke('attachment:saveAll', accountId, folder, uid),
     pick: (): Promise<PickedAttachment[]> => ipcRenderer.invoke('compose:pickAttachments')
   },
   rules: {

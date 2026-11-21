@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leseansicht – Tokens und Zustände</title>
+<link rel="stylesheet" href="reader.css">
+<style>body{margin:0;background:#0b0d10}</style>
+</head>
+<body>
+<style>
+
+.tk-wrap{width:1440px;height:1640px;box-sizing:border-box;display:flex;flex-direction:column;background:#0f1216;font-family:"Segoe UI Variable Text","Segoe UI",-apple-system,sans-serif}
+.tk-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));flex:1}
+.tk-col{padding:36px 40px;display:flex;flex-direction:column;gap:28px;background:var(--paper);color:var(--ink)}
+.tk-h{margin:0;font:650 22px/1.27 var(--sans);letter-spacing:-0.018em}
+.tk-h2{margin:0 0 12px;font:600 12px/1 var(--sans);color:var(--ink-3);letter-spacing:.02em}
+.tk-grid{display:grid;grid-template-columns:132px repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:visible}
+.tk-grid>div{min-height:64px;display:flex;align-items:center;justify-content:center;border-top:1px solid var(--line);padding:0 8px;position:relative}
+.tk-grid>.hd{min-height:36px;border-top:0;font:600 12px/1 var(--sans);color:var(--ink-3)}
+.tk-grid>.rl{justify-content:flex-start;padding-left:16px;font-size:12.5px;color:var(--ink-2);font-weight:600}
+.tk-grid>.wide{justify-content:stretch;padding:0}
+.sw{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.sw div{display:flex;flex-direction:column;gap:6px;font-size:11.5px;color:var(--ink-2)}
+.sw i{display:block;height:36px;border-radius:7px;border:1px solid var(--line)}
+.sw b{font-weight:600;color:var(--ink);font-size:12px}
+.mo{display:grid;grid-template-columns:150px minmax(0,1fr) 150px;font-size:12.5px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.mo span{padding:9px 14px;border-top:1px solid var(--line);color:var(--ink-2)}
+.mo span:nth-child(-n+3){border-top:0;color:var(--ink-3);font-weight:600;font-size:12px}
+.ty{display:flex;flex-direction:column;gap:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:16px 20px}
+.ty div{display:flex;align-items:baseline;gap:16px}
+.ty em{font-style:normal;width:150px;flex:none;font-size:12px;color:var(--ink-3)}
+</style>
+<div class="tk-wrap">
+<div class="tk-cols">
+
+<div class="mc tk-col" data-theme="dark">
+  <h2 class="tk-h">Dunkel</h2>
+
+  <div>
+    <div class="tk-h2">Zustände je Bedienelement</div>
+    <div class="tk-grid">
+      <div class="hd"></div><div class="hd">Ruhe</div><div class="hd">Hover</div><div class="hd">Gedrückt</div><div class="hd">Fokus</div>
+
+      <div class="rl">Primär</div>
+      <div><button class="btn btn--primary mv-left"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg></span>Antworten</button></div>
+      <div><button class="btn btn--primary mv-left is-hover"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg></span>Antworten</button></div>
+      <div><button class="btn btn--primary is-active"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg></span>Antworten</button></div>
+      <div><button class="btn btn--primary is-focus"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg></span>Antworten</button></div>
+
+      <div class="rl">Zweitaktion</div>
+      <div><button class="btn mv-right"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14l5-5-5-5M20 9H9.5A5.5 5.5 0 0 0 4 14.5V20"></path></svg></span>Weiterleiten</button></div>
+      <div><button class="btn mv-right is-hover"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14l5-5-5-5M20 9H9.5A5.5 5.5 0 0 0 4 14.5V20"></path></svg></span>Weiterleiten</button></div>
+      <div><button class="btn is-active"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14l5-5-5-5M20 9H9.5A5.5 5.5 0 0 0 4 14.5V20"></path></svg></span>Weiterleiten</button></div>
+      <div><button class="btn is-focus"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14l5-5-5-5M20 9H9.5A5.5 5.5 0 0 0 4 14.5V20"></path></svg></span>Weiterleiten</button></div>
+
+      <div class="rl">Icon in Gruppe</div>
+      <div><div class="seg"><button class="btn btn--icon" aria-label="Markieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"></path></svg></span></button><button class="btn btn--icon" aria-label="Als ungelesen markieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h9M3 8l9 6 4-2.7"></path><circle cx="19" cy="6" r="2.5"></circle></svg></span></button></div></div>
+      <div><div class="seg"><button class="btn btn--icon mv-turn is-hover" aria-label="Markieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"></path></svg></span><span class="tip">Markieren <kbd>S</kbd></span></button><button class="btn btn--icon" aria-label="Als ungelesen markieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h9M3 8l9 6 4-2.7"></path><circle cx="19" cy="6" r="2.5"></circle></svg></span></button></div></div>
+      <div><div class="seg"><button class="btn btn--icon is-active" aria-label="Markieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"></path></svg></span></button><button class="btn btn--icon" aria-label="Als ungelesen markieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h9M3 8l9 6 4-2.7"></path><circle cx="19" cy="6" r="2.5"></circle></svg></span></button></div></div>
+      <div><div class="seg"><button class="btn btn--icon star-on is-focus" aria-label="Markierung entfernen"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"></path></svg></span></button><button class="btn btn--icon" aria-label="Als ungelesen markieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h9M3 8l9 6 4-2.7"></path><circle cx="19" cy="6" r="2.5"></circle></svg></span></button></div></div>
+
+      <div class="rl">Menü-Auslöser</div>
+      <div><div class="seg"><button class="btn" style="padding: 0 10px 0 11px; gap: 6px;"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5V12l3 2"></path></svg></span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></div></div>
+      <div><div class="seg"><button class="btn mv-tilt is-hover" style="padding: 0 10px 0 11px; gap: 6px;"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5V12l3 2"></path></svg></span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg><span class="tip">Zurückstellen <kbd>B</kbd></span></button></div></div>
+      <div><div class="seg"><button class="btn" aria-expanded="true" style="padding: 0 10px 0 11px; gap: 6px;"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5V12l3 2"></path></svg></span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></div><span style="position: absolute; bottom: 6px; font-size: 11px; color: var(--ink-3);">offen</span></div>
+      <div><div class="seg"><button class="btn is-focus" style="padding: 0 10px 0 11px; gap: 6px;"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5V12l3 2"></path></svg></span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></div></div>
+
+      <div class="rl">Papierkorb</div>
+      <div><div class="seg"><button class="btn btn--icon btn--danger" aria-label="In den Papierkorb"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg></span></button></div></div>
+      <div><div class="seg"><button class="btn btn--icon btn--danger mv-shake is-hover" aria-label="In den Papierkorb"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg></span></button></div></div>
+      <div><div class="seg"><button class="btn btn--icon btn--danger is-active" aria-label="In den Papierkorb"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg></span></button></div></div>
+      <div><div class="seg"><button class="btn btn--icon btn--danger is-focus" aria-label="In den Papierkorb"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg></span></button></div></div>
+
+      <div class="rl">Hinweis-Aktion</div>
+      <div><button class="btn btn--s btn--outline"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9.5v.01"></path></svg></span>Bilder laden</button></div>
+      <div><button class="btn btn--s btn--outline mv-up is-hover"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9.5v.01"></path></svg></span>Bilder laden</button></div>
+      <div><button class="btn btn--s btn--outline is-active"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9.5v.01"></path></svg></span>Bilder laden</button></div>
+      <div><button class="btn btn--s btn--outline is-focus"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9.5v.01"></path></svg></span>Bilder laden</button></div>
+
+      <div class="rl">Menüeintrag</div>
+      <div style="padding: 0 10px;"><button class="mi" style="background: var(--menu);"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span>Amazon</span></button></div>
+      <div style="padding: 0 10px;"><button class="mi is-hover"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span>Amazon</span></button></div>
+      <div style="padding: 0 10px;"><button class="mi is-active"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span>Amazon</span></button></div>
+      <div style="padding: 0 10px;"><button class="mi is-focus"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg><span>Amazon</span></button></div>
+
+      <div class="rl">Anhang</div>
+      <div style="padding: 0 8px;"><div class="tile" style="width: 100%;"><button class="tile-open"><span class="thumb thumb--pdf">PDF</span><span class="ttext"><span class="tname">Ticket.pdf</span><span class="tsize">214 KB</span></span></button></div></div>
+      <div style="padding: 0 8px;"><div class="tile is-hover" style="width: 100%;"><button class="tile-open"><span class="thumb thumb--pdf">PDF</span><span class="ttext"><span class="tname">Ticket.pdf</span><span class="tsize">214 KB</span></span></button></div></div>
+      <div style="padding: 0 8px;"><div class="tile is-active" style="width: 100%;"><button class="tile-open"><span class="thumb thumb--pdf">PDF</span><span class="ttext"><span class="tname">Ticket.pdf</span><span class="tsize">214 KB</span></span></button></div></div>
+      <div style="padding: 0 8px;"><div class="tile" style="width: 100%;"><button class="tile-open is-focus"><span class="thumb thumb--pdf">PDF</span><span class="ttext"><span class="tname">Ticket.pdf</span><span class="tsize">214 KB</span></span></button></div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="tk-h2">Unterhaltungszeile: Ruhe, Hover, Gedrückt, aktuell</div>
+    <div class="card thread">
+      <button class="trow"><span class="dot"></span><span class="who">Anna Berger</span><span class="what">Hallo Tim, hier ist der Projektplan …</span><span></span><span class="when">Fr., 09:12</span></button>
+      <button class="trow is-hover"><span class="dot"></span><span class="who">Timotheus Stotz</span><span class="what">Danke, ich schaue ihn mir an …</span><span class="tag">Gesendet</span><span class="when">Fr., 11:40</span></button>
+      <button class="trow is-active"><span class="dot"></span><span class="who">Anna Berger</span><span class="what">Super, dann bis Montag …</span><span></span><span class="when">Mo., 08:05</span></button>
+      <button class="trow is-current"><span class="dot"></span><span class="who">Anna Berger</span><span class="what">Super, dann bis Montag …</span><span></span><span class="when">Mo., 08:05</span></button>
+    </div>
+  </div>
+
+  <div>
+    <div class="tk-h2">Farben</div>
+    <div class="sw">
+      <div><i style="background: var(--paper);"></i><b>paper</b>#15181e</div>
+      <div><i style="background: var(--surface);"></i><b>surface</b>#1c2027</div>
+      <div><i style="background: var(--surface-hover);"></i><b>surface-hover</b>#262c36</div>
+      <div><i style="background: var(--surface-pressed);"></i><b>surface-pressed</b>#2d3440</div>
+      <div><i style="background: var(--ink);"></i><b>ink</b>#e6e9ee</div>
+      <div><i style="background: var(--ink-2);"></i><b>ink-2</b>#b0b8c4</div>
+      <div><i style="background: var(--ink-3);"></i><b>ink-3</b>#8b94a1 · 5,2:1</div>
+      <div><i style="background: var(--line-strong);"></i><b>line-strong</b>#3a424e</div>
+      <div><i style="background: var(--accent);"></i><b>accent</b>#82a6f0</div>
+      <div><i style="background: var(--accent-hover);"></i><b>accent-hover</b>#97b6f4</div>
+      <div><i style="background: var(--accent-soft);"></i><b>accent-soft</b>#1f2b41</div>
+      <div><i style="background: var(--on-accent);"></i><b>on-accent</b>#0d1422 · 7,4:1</div>
+    </div>
+  </div>
+</div>
+
+<div class="mc tk-col" data-theme="light">
+  <h2 class="tk-h">Hell</h2>
+
+  <div>
+    <div class="tk-h2">Zustände je Bedienelement</div>
+    <div class="tk-grid">
+      <div class="hd"></div><div class="hd">Ruhe</div><div class="hd">Hover</div><div class="hd">Gedrückt</div><div class="hd">Fokus</div>
+
+      <div class="rl">Primär</div>
+      <div><button class="btn btn--primary"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg></span>Antworten</button></div>
+      <div><button class="btn btn--primary mv-left is-hover"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg></span>Antworten</button></div>
+      <div><button class="btn btn--primary is-active"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg></span>Antworten</button></div>
+      <div><button class="btn btn--primary is-focus"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path></svg></span>Antworten</button></div>
+
+      <div class="rl">Zweitaktion</div>
+      <div><button class="btn"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14l5-5-5-5M20 9H9.5A5.5 5.5 0 0 0 4 14.5V20"></path></svg></span>Weiterleiten</button></div>
+      <div><button class="btn mv-right is-hover"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14l5-5-5-5M20 9H9.5A5.5 5.5 0 0 0 4 14.5V20"></path></svg></span>Weiterleiten</button></div>
+      <div><button class="btn is-active"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14l5-5-5-5M20 9H9.5A5.5 5.5 0 0 0 4 14.5V20"></path></svg></span>Weiterleiten</button></div>
+      <div><button class="btn is-focus"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14l5-5-5-5M20 9H9.5A5.5 5.5 0 0 0 4 14.5V20"></path></svg></span>Weiterleiten</button></div>
+
+      <div class="rl">Icon in Gruppe</div>
+      <div><div class="seg"><button class="btn btn--icon" aria-label="Markieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"></path></svg></span></button><button class="btn btn--icon" aria-label="Archivieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v4H3zM5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"></path></svg></span></button></div></div>
+      <div><div class="seg"><button class="btn btn--icon" aria-label="Markieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"></path></svg></span></button><button class="btn btn--icon mv-down is-hover" aria-label="Archivieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v4H3zM5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"></path></svg></span><span class="tip">Archivieren <kbd>E</kbd></span></button></div></div>
+      <div><div class="seg"><button class="btn btn--icon" aria-label="Markieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"></path></svg></span></button><button class="btn btn--icon is-active" aria-label="Archivieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v4H3zM5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"></path></svg></span></button></div></div>
+      <div><div class="seg"><button class="btn btn--icon star-on" aria-label="Markierung entfernen"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"></path></svg></span></button><button class="btn btn--icon is-focus" aria-label="Archivieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v4H3zM5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"></path></svg></span></button></div></div>
+
+      <div class="rl">Menü-Auslöser</div>
+      <div><div class="seg"><button class="btn" style="padding: 0 10px 0 11px; gap: 6px;"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM10 13h6M13.5 10.5L16 13l-2.5 2.5"></path></svg></span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></div></div>
+      <div><div class="seg"><button class="btn mv-right is-hover" style="padding: 0 10px 0 11px; gap: 6px;"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM10 13h6M13.5 10.5L16 13l-2.5 2.5"></path></svg></span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></div></div>
+      <div><div class="seg"><button class="btn" aria-expanded="true" style="padding: 0 10px 0 11px; gap: 6px;"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM10 13h6M13.5 10.5L16 13l-2.5 2.5"></path></svg></span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></div><span style="position: absolute; bottom: 6px; font-size: 11px; color: var(--ink-3);">offen</span></div>
+      <div><div class="seg"><button class="btn is-focus" style="padding: 0 10px 0 11px; gap: 6px;"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM10 13h6M13.5 10.5L16 13l-2.5 2.5"></path></svg></span><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></div></div>
+
+      <div class="rl">Papierkorb</div>
+      <div><div class="seg"><button class="btn btn--icon btn--danger" aria-label="In den Papierkorb"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg></span></button></div></div>
+      <div><div class="seg"><button class="btn btn--icon btn--danger mv-shake is-hover" aria-label="In den Papierkorb"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg></span></button></div></div>
+      <div><div class="seg"><button class="btn btn--icon btn--danger is-active" aria-label="In den Papierkorb"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg></span></button></div></div>
+      <div><div class="seg"><button class="btn btn--icon btn--danger is-focus" aria-label="In den Papierkorb"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg></span></button></div></div>
+
+      <div class="rl">Hinweis-Aktion</div>
+      <div><button class="btn btn--s btn--outline"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9.5v.01"></path></svg></span>Bilder laden</button></div>
+      <div><button class="btn btn--s btn--outline mv-up is-hover"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9.5v.01"></path></svg></span>Bilder laden</button></div>
+      <div><button class="btn btn--s btn--outline is-active"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9.5v.01"></path></svg></span>Bilder laden</button></div>
+      <div><button class="btn btn--s btn--outline is-focus"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17M15.5 9.5v.01"></path></svg></span>Bilder laden</button></div>
+
+      <div class="rl">Menüeintrag</div>
+      <div style="padding: 0 10px;"><button class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5V12l3 2"></path></svg><span>In einer Stunde</span></button></div>
+      <div style="padding: 0 10px;"><button class="mi is-hover"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5V12l3 2"></path></svg><span>In einer Stunde</span></button></div>
+      <div style="padding: 0 10px;"><button class="mi is-active"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5V12l3 2"></path></svg><span>In einer Stunde</span></button></div>
+      <div style="padding: 0 10px;"><button class="mi is-focus"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5V12l3 2"></path></svg><span>In einer Stunde</span></button></div>
+
+      <div class="rl">Anhang</div>
+      <div style="padding: 0 8px;"><div class="tile" style="width: 100%;"><button class="tile-open"><span class="thumb thumb--pdf">PDF</span><span class="ttext"><span class="tname">Ticket.pdf</span><span class="tsize">214 KB</span></span></button></div></div>
+      <div style="padding: 0 8px;"><div class="tile is-hover" style="width: 100%;"><button class="tile-open"><span class="thumb thumb--pdf">PDF</span><span class="ttext"><span class="tname">Ticket.pdf</span><span class="tsize">214 KB</span></span></button></div></div>
+      <div style="padding: 0 8px;"><div class="tile is-active" style="width: 100%;"><button class="tile-open"><span class="thumb thumb--pdf">PDF</span><span class="ttext"><span class="tname">Ticket.pdf</span><span class="tsize">214 KB</span></span></button></div></div>
+      <div style="padding: 0 8px;"><div class="tile" style="width: 100%;"><button class="tile-open is-focus"><span class="thumb thumb--pdf">PDF</span><span class="ttext"><span class="tname">Ticket.pdf</span><span class="tsize">214 KB</span></span></button></div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="tk-h2">Schrift</div>
+    <div class="ty">
+      <div><em>Betreff 22 / 650</em><span style="font: 650 22px/1.27 var(--sans); letter-spacing: -0.018em;">Re: Projektplan</span></div>
+      <div><em>Absender 14 / 600</em><span style="font: 600 14px/1.4 var(--sans);">Anna Berger</span></div>
+      <div><em>Kopfzeilen 13,5 / 400</em><span style="font-size: 13.5px; color: var(--ink-2);">Jonas Weber, Lea Fischer</span></div>
+      <div><em>Schalter 13,5 / 600</em><span style="font: 600 13.5px/1 var(--sans);">Weiterleiten</span></div>
+      <div><em>Beschriftung 12 / 600</em><span style="font: 600 12px/1 var(--sans); color: var(--ink-3);">Unterhaltung · 3 Nachrichten</span></div>
+      <div><em>Nur-Text-Mail 15 / 1,6</em><span style="font-size: 15px; line-height: 1.6;">Super, dann bis Montag.</span></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="tk-h2">Bewegung (Easing für alles: cubic-bezier(0.2, 0.8, 0.2, 1))</div>
+    <div class="mo">
+      <span>Was</span><span>Bewegung</span><span>Wert</span>
+      <span>Antworten, Allen antw.</span><span>Pfeil nach links</span><span>translateX(-2px) · 200 ms</span>
+      <span>Weiterleiten, Verschieben</span><span>Pfeil nach rechts</span><span>translateX(3px) · 200 ms</span>
+      <span>Markieren</span><span>Stern dreht um eine Zacke</span><span>rotate(72deg) · 280 ms</span>
+      <span>Ungelesen, Bilder laden</span><span>hebt sich</span><span>translateY(-2px) · 200 ms</span>
+      <span>Zurückstellen</span><span>Uhr kippt</span><span>rotate(-20deg) · 280 ms</span>
+      <span>Archiv, Speichern</span><span>sinkt</span><span>translateY(2px) · 200 ms</span>
+      <span>Papierkorb</span><span>wackelt einmal, wird rot</span><span>460 ms</span>
+      <span>Erneut versuchen</span><span>dreht sich</span><span>rotate(180deg) · 280 ms</span>
+      <span>Menü öffnet</span><span>wächst aus dem Auslöser</span><span>scale(.96) → 1 · 160 ms</span>
+      <span>Anhang, Zeile</span><span>hebt sich, Schatten</span><span>translateY(-1px) · 200 ms</span>
+      <span>Gedrückt</span><span>sinkt, schrumpft</span><span>scale(.98) · Icon .94 · 120 ms</span>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+</body>
+</html>

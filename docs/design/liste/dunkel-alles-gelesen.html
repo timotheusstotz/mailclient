@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Liste – Dunkel · Alles gelesen</title>
+<link rel="stylesheet" href="../leseansicht/reader.css">
+<link rel="stylesheet" href="list.css">
+<style>body{margin:0;background:#0b0d10}
+
+</style>
+</head>
+<body>
+<div class="mc win" data-theme="dark" style="width: 1440px; height: 900px; --fd-w: 224px; --ls-w: 384px;">
+<nav class="rl" aria-label="Konten">
+  <button class="rl-compose" aria-label="Neue Nachricht" title="Neue Nachricht (Strg+N)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"></path></svg></button>
+  <div class="rl-sep"></div>
+    <button class="rl-tile is-on" aria-pressed="true" aria-label="Alle Konten" title="Alle Konten">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"></path></svg>
+      <span class="rl-badge">3</span>
+    </button>
+    <button class="rl-tile acct--google" aria-pressed="false" aria-label="Google · timotheusstotz@gmail.com" title="Google · timotheusstotz@gmail.com">
+      <span class="rl-ini">GO</span>
+      <span class="rl-badge">3</span>
+    </button>
+    <button class="rl-tile acct--icloud" aria-pressed="false" aria-label="iCloud · timotheusstotz@icloud.com" title="iCloud · timotheusstotz@icloud.com">
+      <span class="rl-ini">IC</span>
+    </button>
+    <button class="rl-tile acct--webde" aria-pressed="false" aria-label="web.de · timotheusstotz@web.de" title="web.de · timotheusstotz@web.de">
+      <span class="rl-ini">WE</span>
+    </button>
+  <button class="rl-tile rl-add" aria-label="Konto hinzufügen" title="Konto hinzufügen"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+  <div class="rl-grow"></div>
+  <button class="rl-tile rl-set" aria-label="Einstellungen" title="Einstellungen (Strg+,)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+</nav>
+<aside class="fd" aria-label="Ordner">
+  <div class="fd-head"><b>Alle Konten</b><span>3 Konten verbunden</span></div>
+  <div class="fd-scroll">
+        <button class="fi has-unread" style="--lvl: 0;" aria-current="false" title="Posteingang">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l2.5-7.5A2 2 0 0 1 7.4 4h9.2a2 2 0 0 1 1.9 1.5L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 13h5l1.5 2.5h5L16 13h5"></path></svg>
+          <span class="lb">Posteingang</span>
+          <span class="n">3</span>
+        </button>
+        <button class="fi is-on" style="--lvl: 0;" aria-current="page" title="Ungelesen">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7l9 6 9-6"></path></svg>
+          <span class="lb">Ungelesen</span>
+          <span class="n n--total"></span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Markiert">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"></path></svg>
+          <span class="lb">Markiert</span>
+          <span class="n n--total">1</span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Zurückgestellt">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5V12l3 2"></path></svg>
+          <span class="lb">Zurückgestellt</span>
+          <span class="n n--total">3</span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Anhänge">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"></path></svg>
+          <span class="lb">Anhänge</span>
+          <span class="n n--total"></span>
+        </button>
+        <button class="fg-head acct--google" aria-expanded="true">
+          <svg class="tw is-open" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg>
+          <span class="dot"></span><span class="lb">Google</span>
+          <span class="n"></span>
+        </button>
+        <button class="fi has-unread" style="--lvl: 0;" aria-current="false" title="Posteingang">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l2.5-7.5A2 2 0 0 1 7.4 4h9.2a2 2 0 0 1 1.9 1.5L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 13h5l1.5 2.5h5L16 13h5"></path></svg>
+          <span class="lb">Posteingang</span>
+          <span class="n">3</span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Archiv">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v4H3zM5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"></path></svg>
+          <span class="lb">Archiv</span>
+          <span class="n n--total"></span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Gesendet">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3L10 14M21 3l-6.5 18-4-8.5L2 8.5z"></path></svg>
+          <span class="lb">Gesendet</span>
+          <span class="n n--total"></span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Entwürfe">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v4h4"></path></svg>
+          <span class="lb">Entwürfe</span>
+          <span class="n n--total">2</span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Spam">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5.5M12 16.5v.01"></path></svg>
+          <span class="lb">Spam</span>
+          <span class="n n--total"></span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Papierkorb">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg>
+          <span class="lb">Papierkorb</span>
+          <span class="n n--total"></span>
+        </button>
+        <button class="fi fi--more" style="--lvl: 0;" aria-current="false" title="Eigene Ordner">
+          <svg class="tw" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg>
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+          <span class="lb">Eigene Ordner</span>
+          <span class="n n--total">10</span>
+        </button>
+        <button class="fg-head acct--icloud" aria-expanded="true">
+          <svg class="tw is-open" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg>
+          <span class="dot"></span><span class="lb">iCloud</span>
+          <span class="n"></span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Posteingang">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l2.5-7.5A2 2 0 0 1 7.4 4h9.2a2 2 0 0 1 1.9 1.5L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 13h5l1.5 2.5h5L16 13h5"></path></svg>
+          <span class="lb">Posteingang</span>
+          <span class="n n--total"></span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Archiv">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v4H3zM5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"></path></svg>
+          <span class="lb">Archiv</span>
+          <span class="n n--total"></span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Gesendet">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3L10 14M21 3l-6.5 18-4-8.5L2 8.5z"></path></svg>
+          <span class="lb">Gesendet</span>
+          <span class="n n--total"></span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Entwürfe">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v4h4"></path></svg>
+          <span class="lb">Entwürfe</span>
+          <span class="n n--total"></span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Spam">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5.5M12 16.5v.01"></path></svg>
+          <span class="lb">Spam</span>
+          <span class="n n--total"></span>
+        </button>
+        <button class="fi" style="--lvl: 0;" aria-current="false" title="Papierkorb">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg>
+          <span class="lb">Papierkorb</span>
+          <span class="n n--total"></span>
+        </button>
+        <button class="fg-head acct--webde" aria-expanded="false">
+          <svg class="tw" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round;"><path d="M9 6l6 6-6 6"></path></svg>
+          <span class="dot"></span><span class="lb">web.de</span>
+          <span class="n"></span>
+        </button>
+  </div>
+</aside>
+<section class="ls" aria-label="Nachrichten">
+  <div class="ls-head">
+    <div class="sf" role="search">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"></path></svg>
+        <span class="ph">Durchsuchen</span>
+        <span class="lbl-k">Strg F</span>
+    </div>
+    <button class="btn btn--icon rf mv-spin" aria-label="Jetzt abrufen" title="Jetzt abrufen (Strg+R)"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5"></path></svg></span></button>
+  </div>
+  <div class="ls-sub">
+    <span class="ls-title">Ungelesen</span>
+    <span class="ls-meta">Alle Konten</span>
+    <span class="grow"></span>
+  </div>
+    <div class="ls-empty">
+      <div class="statenote">
+        <div class="mark" style="background: var(--ics-bg); color: var(--ics-ink);"><svg class="ic ic--l" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 14px;">
+          <div>
+            <h2 style="color: var(--ink);">Alles gelesen</h2>
+            <p>Neue ungelesene Nachrichten erscheinen hier von selbst.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  <div class="sp" role="separator" aria-orientation="vertical" aria-label="Breite der Liste" aria-valuenow="384" tabindex="0" title="Ziehen ändert die Breite, Doppelklick setzt sie zurück"><i></i></div>
+</section>
+<section class="pane" aria-label="Nachricht">
+  <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px;">
+    <div class="statenote">
+      <div class="mark" style="background: var(--surface-3); color: var(--ink-2);"><svg class="ic ic--l" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7l9 6 9-6"></path></svg></div>
+      <div>
+        <h2 style="color: var(--ink);">Keine Nachricht ausgewählt</h2>
+        <p style="color: var(--ink-2);">Wähle links eine aus oder blättere mit <kbd class="k">J</kbd> <kbd class="k">K</kbd></p>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+</body>
+</html>

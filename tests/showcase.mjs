@@ -72,7 +72,7 @@ async function seed() {
 const LABELS = [
   ['Alle Konten', 'All accounts'], ['Konten verbunden', 'accounts connected'], ['Posteingang', 'Inbox'], ['Ungelesen', 'Unread'],
   ['Markiert', 'Flagged'], ['Zurueckgestellt', 'Snoozed'], ['Zurueckstellen', 'Snooze'], ['Anhaenge', 'Attachments'],
-  ['Archiv', 'Archive'], ['Gesendet', 'Sent'], ['Entwuerfe', 'Drafts'], ['Papierkorb', 'Trash'], ['Durchsuchen', 'Search'],
+  ['Archiv', 'Archive'], ['Gesendet', 'Sent'], ['Entwürfe', 'Drafts'], ['Papierkorb', 'Trash'], ['Durchsuchen', 'Search'],
   ['Antworten', 'Reply'], ['Weiterleiten', 'Forward'], ['Verschieben', 'Move'], ['Unterhaltung', 'Conversation'],
   ['Nachrichten', 'messages'], ['Arbeit', 'Work'], ['Privat', 'Personal']
 ]

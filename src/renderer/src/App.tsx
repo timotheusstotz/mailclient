@@ -11,19 +11,24 @@ import type {
 } from '@shared/types'
 import { collapseThreads, type ThreadRow } from '@shared/threads'
 import { timePresets } from '@shared/times'
-import { AccountRail } from './components/AccountRail'
 import { AccountWizard } from './components/AccountWizard'
 import { Composer } from './components/Composer'
 import { ContextMenu, type MenuItem, type MenuRequest } from './components/ContextMenu'
-import { FolderList } from './components/FolderList'
-import { MessageList } from './components/MessageList'
+import { MessageList } from './components/list/MessageList'
+import { SelectionPane } from './components/list/SelectionPane'
 import { Reader } from './components/Reader'
+import { AccountRail } from './components/sidebar/AccountRail'
+import { FolderColumn } from './components/sidebar/FolderColumn'
+import { FolderMenu } from './components/sidebar/FolderMenu'
+import { moveChoices } from './lib/folders'
+import { inPlace, viewInfo } from './lib/views'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Splitter } from './components/Splitter'
 import { TimeDialog } from './components/TimeDialog'
 import { attachZoomKeys, attachZoomWheel, clampZoom, nextZoom, type ZoomStep } from './lib/zoom'
 import {
   IconArchive,
+  IconCheck,
   IconClock,
   IconCompose,
   IconEnvelopeOpen,
@@ -35,20 +40,26 @@ import {
   IconReplyAll,
   IconSettings,
   IconStar,
-  IconTrash
+  IconTrash,
+  IconUndo
 } from './components/icons'
 import { drawBadge } from './lib/badge'
-import { addressList, folderLabel, formatAddressFull, fullDate, shortDateTime } from './lib/format'
+import { addressList, counted, folderLabel, formatAddressFull, fullDate, shortDateTime } from './lib/format'
+import { endMailDrag, startMailDrag } from './lib/mailDrag'
+import { DragGhost } from './components/list/DragGhost'
 import { addTrustedDomain } from './lib/remote-images'
 import type { MailtoDraft } from '@shared/mailto'
 import { textToEditorHtml } from './lib/sanitize'
 import {
   runServerSearch,
+  useMediaQuery,
   useMessageBody,
   useMessages,
   useSearch,
   useSyncFeedback,
+  useTheme,
   useThread,
+  useViewCounts,
   useWorkspace
 } from './state'
 
@@ -58,6 +69,8 @@ const UNIFIED_INBOX: ViewRef = { kind: 'unified', id: 'inbox' }
 interface Toast {
   text: string
   action?: { label: string; run: () => void }
+  /** Ein Haken vor dem Text, wenn etwas erledigt ist */
+  done?: boolean
 }
 
 /** Frage nach einem freien Zeitpunkt. */
@@ -69,7 +82,7 @@ interface TimeAsk {
 
 export default function App() {
   const workspace = useWorkspace()
-  const { accounts, foldersByAccount, folders, settings, statuses, statusById } = workspace
+  const { accounts, foldersByAccount, folders, settings, statuses, statusById, updateSettings } = workspace
 
   const [view, setView] = useState<ViewRef>(UNIFIED_INBOX)
   const [selected, setSelected] = useState<MessageSummary | null>(null)
@@ -81,6 +94,11 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [wizard, setWizard] = useState<{ account?: Account } | null>(null)
   const [menu, setMenu] = useState<MenuRequest | null>(null)
+  /** Die Zeile, deren Kontextmenue offen ist; sie wird markiert, aber nicht geoeffnet */
+  const [menuRowId, setMenuRowId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!menu) setMenuRowId(null)
+  }, [menu])
   const [encryptionAvailable, setEncryptionAvailable] = useState(true)
   const [toast, setToast] = useState<Toast | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -146,7 +164,7 @@ export default function App() {
     () => (threadFocusId ? (thread.find((m) => m.id === threadFocusId) ?? selected) : selected),
     [selected, thread, threadFocusId]
   )
-  const { body, loading: bodyLoading, error: bodyError } = useMessageBody(shown)
+  const { body, error: bodyError, retry: retryBody } = useMessageBody(shown)
 
   const accountsById = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts])
   const folderByKey = useMemo(
@@ -168,7 +186,37 @@ export default function App() {
     [unreadByAccount]
   )
 
-  const sync = useSyncFeedback(statuses)
+  const sync = useSyncFeedback(accounts, statuses)
+  const theme = useTheme(settings?.theme)
+  const viewCounts = useViewCounts()
+  /** Unter etwa 1200 px fehlt die Ordnerspalte; der Titel über der Liste öffnet die Ordner als Menü. */
+  const narrow = useMediaQuery('(max-width: 1199.98px)')
+  /** Ein hohes Fenster hat Platz für alle Kontogruppen; ein niedriges öffnet anfangs nur die ersten zwei. */
+  const tall = useMediaQuery('(min-height: 1000px)')
+
+  /*
+    Auf- und zugeklappte Gruppen der Ordnerspalte. Sofort hier, gespeichert in
+    den Einstellungen - die Antwort darauf kommt verzögert und darf einen
+    schnellen zweiten Klick nicht zurückdrehen.
+  */
+  const groupsRef = useRef<Record<string, boolean>>({})
+  const [groups, setGroups] = useState<Record<string, boolean>>({})
+  const groupsLoaded = useRef(false)
+  useEffect(() => {
+    if (!settings || groupsLoaded.current) return
+    groupsLoaded.current = true
+    groupsRef.current = { ...settings.folderGroups }
+    setGroups(groupsRef.current)
+  }, [settings])
+  const isGroupOpen = useCallback((key: string, fallback: boolean) => groups[key] ?? fallback, [groups])
+  const toggleGroup = useCallback(
+    (key: string, open: boolean) => {
+      groupsRef.current = { ...groupsRef.current, [key]: open }
+      setGroups(groupsRef.current)
+      void updateSettings({ folderGroups: groupsRef.current })
+    },
+    [updateSettings]
+  )
 
   const selectedFolder = shown ? folderByKey.get(`${shown.accountId}|${shown.folder}`) : undefined
   const selectedAccount = shown ? accountsById.get(shown.accountId) : undefined
@@ -185,15 +233,15 @@ export default function App() {
     [selected, selection, shown]
   )
 
+  /** Wohin sich eine Mail verschieben laesst: wie im Menue der Leiste, nur ohne den eigenen Ordner. */
   const moveTargets = useCallback(
     (accountId: string, currentFolder?: string): Folder[] =>
-      (foldersByAccount.get(accountId) ?? []).filter(
-        (f) => f.selectable && !f.hidden && f.path !== currentFolder && f.role !== 'drafts'
-      ),
+      moveChoices(foldersByAccount.get(accountId) ?? []).filter((f) => f.path !== currentFolder),
     [foldersByAccount]
   )
 
   const appRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLElement>(null)
   const [readerZoom, setReaderZoom] = useState(1)
   const zoomSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -234,22 +282,6 @@ export default function App() {
   // Strg+Mausrad vergroessert die Mail, egal wo der Zeiger steht.
   useEffect(() => attachZoomWheel(window, stepReaderZoom), [stepReaderZoom])
 
-  // Theme auf das Wurzelelement schreiben; "system" folgt der Systemeinstellung.
-  useEffect(() => {
-    if (!settings) return
-    const root = document.documentElement
-    const apply = (): void => {
-      const dark =
-        settings.theme === 'dark' ||
-        (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-      root.dataset.theme = dark ? 'dark' : 'light'
-    }
-    apply()
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    media.addEventListener('change', apply)
-    return () => media.removeEventListener('change', apply)
-  }, [settings])
-
   // Ungelesen-Zaehler am Taskleisten-Symbol nachfuehren.
   useEffect(() => {
     void window.api.setBadge(unreadTotal, drawBadge(unreadTotal))
@@ -283,10 +315,23 @@ export default function App() {
     else if (!fresh && !loading) setSelected(null)
   }, [messages, selected, loading])
 
+  /*
+    Mails, die der Punkt in der Liste eben bewusst auf ungelesen gesetzt hat.
+    Steht die Zeile gerade offen, wuerde das Gelesen-Markieren unten sie sonst
+    sofort zuruecksetzen. Gilt, bis eine andere Zeile aufgeht.
+  */
+  const keptUnread = useRef(new Set<string>())
+  useEffect(() => {
+    keptUnread.current = new Set()
+  }, [selected?.id])
+
   // Gelesen-Markierung mit Verzoegerung: kurzes Antippen soll nichts aendern.
   // Eine geoeffnete Unterhaltung gilt als Ganzes gelesen.
   const autoRead = useMemo(
-    () => (selectedIds.size > 1 ? [] : selection.filter((m) => !m.flags.includes('\\Seen'))),
+    () =>
+      selectedIds.size > 1
+        ? []
+        : selection.filter((m) => !m.flags.includes('\\Seen') && !keptUnread.current.has(m.id)),
     [selectedIds, selection]
   )
   const autoReadKey = autoRead.map((m) => m.id).join(' ')
@@ -312,11 +357,18 @@ export default function App() {
     })
   }, [search.debounced, view])
 
-  const showToast = useCallback((text: string, action?: Toast['action'], ms = 4000) => {
+  const toastMs = useRef(4000)
+  const showToast = useCallback((text: string, action?: Toast['action'], ms = 4000, done = false) => {
     // Ohne das raeumte der Zaehler einer aelteren Meldung die neue vorzeitig ab.
     if (toastTimer.current) clearTimeout(toastTimer.current)
-    setToast({ text, action })
+    toastMs.current = ms
+    setToast({ text, action, done })
     toastTimer.current = setTimeout(() => setToast(null), ms)
+  }, [])
+  /** Solange der Zeiger oder der Fokus auf der Meldung steht, bleibt sie. */
+  const holdToast = useCallback((hold: boolean) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = hold ? null : setTimeout(() => setToast(null), Math.min(toastMs.current, 3000))
   }, [])
 
   const act = useCallback(
@@ -332,6 +384,27 @@ export default function App() {
 
   // ------------------------------------------------------------ Auswahl
 
+  /**
+   * Strg+Klick und das Kästchen einer Zeile: nimmt sie in die Auswahl oder
+   * heraus. Geht die offene Zeile, rückt eine andere angehakte nach - die
+   * offene gehört immer zur Auswahl.
+   */
+  const togglePick = useCallback(
+    (message: MessageSummary) => {
+      const next = new Set(selectedIds)
+      if (next.has(message.id) && next.size > 1) {
+        next.delete(message.id)
+        setSelected(heads.find((m) => next.has(m.id)) ?? message)
+      } else {
+        next.add(message.id)
+        setSelected(message)
+      }
+      setSelectedIds(next)
+      setAnchorId(message.id)
+    },
+    [heads, selectedIds]
+  )
+
   const handleSelect = useCallback(
     (message: MessageSummary, event: React.MouseEvent) => {
       if (event.shiftKey && anchorId) {
@@ -346,14 +419,7 @@ export default function App() {
       }
 
       if (event.ctrlKey || event.metaKey) {
-        setSelectedIds((prev) => {
-          const next = new Set(prev)
-          if (next.has(message.id) && next.size > 1) next.delete(message.id)
-          else next.add(message.id)
-          return next
-        })
-        setSelected(message)
-        setAnchorId(message.id)
+        togglePick(message)
         return
       }
 
@@ -361,8 +427,9 @@ export default function App() {
       setSelected(message)
       setAnchorId(message.id)
     },
-    [anchorId, heads]
+    [anchorId, heads, togglePick]
   )
+
 
   const selectNextAfterRemoval = useCallback(
     (removed: MessageSummary[]) => {
@@ -481,7 +548,7 @@ export default function App() {
     (items: MessageSummary[]) => {
       if (!items.length) return
       selectNextAfterRemoval(items)
-      void act(() => window.api.messages.remove(items), 'Loeschen fehlgeschlagen:')
+      void act(() => window.api.messages.remove(items), 'Löschen fehlgeschlagen:')
     },
     [act, selectNextAfterRemoval]
   )
@@ -495,13 +562,58 @@ export default function App() {
     [act, selectNextAfterRemoval]
   )
 
+  /** Gezogen wird, was ausgewaehlt ist, wenn die Zeile dazugehoert; sonst nur diese Zeile mit ihrer Unterhaltung. */
+  const startRowDrag = useCallback(
+    (event: React.DragEvent, message: MessageSummary) => {
+      const items =
+        selectedIds.size > 1 && selectedIds.has(message.id)
+          ? heads.filter((m) => selectedIds.has(m.id)).flatMap(membersOf)
+          : membersOf(message)
+      startMailDrag(event, items)
+    },
+    [heads, membersOf, selectedIds]
+  )
+
+  const dropMail = useCallback(
+    (items: MessageSummary[], accountId: string, folder: Folder) => {
+      // Was schon dort liegt, bleibt, wo es ist.
+      const moving = items.filter((m) => m.folder !== folder.path)
+      endMailDrag(accountId)
+      if (!moving.length) return
+      selectNextAfterRemoval(moving)
+      const label = folderLabel(folder.name, folder.role)
+      void act(async () => {
+        await window.api.messages.move(moving, folder.path)
+        showToast(
+          `${counted(moving.length, 'Mail', 'Mails')} nach ${label} verschoben`,
+          {
+            label: 'Rückgängig',
+            run: () =>
+              void act(async () => {
+                const back = await window.api.messages.undoMove(moving, folder.path)
+                showToast(
+                  back ? `${counted(back, 'Mail', 'Mails')} zurückgeholt` : 'Nichts mehr zum Zurückholen da',
+                  undefined,
+                  4000,
+                  back > 0
+                )
+              }, 'Zurückholen fehlgeschlagen:')
+          },
+          6000,
+          true
+        )
+      }, 'Verschieben fehlgeschlagen:')
+    },
+    [act, selectNextAfterRemoval, showToast]
+  )
+
   const doSnooze = useCallback(
     (items: MessageSummary[], until: number) => {
       if (!items.length) return
       selectNextAfterRemoval(items)
-      void act(() => window.api.messages.snooze(items, until), 'Zurueckstellen fehlgeschlagen:')
-      showToast(`Zurueckgestellt bis ${shortDateTime(until)}.`, {
-        label: 'Rueckgaengig',
+      void act(() => window.api.messages.snooze(items, until), 'Zurückstellen fehlgeschlagen:')
+      showToast(`Zurückgestellt bis ${shortDateTime(until)}.`, {
+        label: 'Rückgängig',
         run: () => void window.api.messages.unsnooze(items)
       })
     },
@@ -512,8 +624,8 @@ export default function App() {
     (items: MessageSummary[]) => {
       if (!items.length) return
       setTimeAsk({
-        title: 'Zurueckstellen bis',
-        confirm: 'Zurueckstellen',
+        title: 'Zurückstellen bis',
+        confirm: 'Zurückstellen',
         onPick: (at) => doSnooze(items, at)
       })
     },
@@ -561,7 +673,7 @@ export default function App() {
         // Der Knopf bleibt genau so lange stehen, wie sich die Nachricht noch aufhalten laesst.
         showToast(
           'Nachricht wird gesendet.',
-          { label: 'Rueckgaengig', run: () => void reopenOutbox(id) },
+          { label: 'Rückgängig', run: () => void reopenOutbox(id) },
           Math.max(result.sendAt - Date.now(), 1000)
         )
       } else {
@@ -581,15 +693,13 @@ export default function App() {
 
   const messageMenu = useCallback(
     (event: React.MouseEvent, message: MessageSummary) => {
-      // Rechtsklick neben die Mehrfachauswahl setzt sie zurueck; innerhalb
-      // bleibt sie stehen, damit sich das Menue auf alles Markierte bezieht.
+      // Innerhalb der Mehrfachauswahl bezieht sich das Menue auf alles Markierte.
+      // Sonst nur auf diese Zeile - geoeffnet wird sie dabei nicht: ein
+      // Rechtsklick soll etwa "ungelesen" setzen koennen, ohne dass das Oeffnen
+      // sie gleich wieder als gelesen markiert.
       const many = selectedIds.has(message.id) && selectedIds.size > 1
       const items = many ? heads.filter((m) => selectedIds.has(m.id)).flatMap(membersOf) : membersOf(message)
-      if (!many) {
-        setSelected(message)
-        setSelectedIds(new Set([message.id]))
-        setAnchorId(message.id)
-      }
+      if (!many) setMenuRowId(message.id)
       const waiting = items.filter((m) => m.snoozedUntil !== undefined && !m.snoozeOver)
       const anyUnread = items.some((m) => !m.flags.includes('\\Seen'))
       const anyUnflagged = items.some((m) => !m.flags.includes('\\Flagged'))
@@ -639,7 +749,7 @@ export default function App() {
         },
         {
           kind: 'submenu',
-          label: 'Zurueckstellen',
+          label: 'Zurückstellen',
           icon: <IconClock size={15} />,
           items: [
             ...timePresets().map((preset) => ({
@@ -647,14 +757,14 @@ export default function App() {
               label: preset.label,
               onSelect: () => doSnooze(items, preset.at)
             })),
-            { kind: 'item' as const, label: 'Zeitpunkt waehlen ...', onSelect: () => askSnooze(items) }
+            { kind: 'item' as const, label: 'Zeitpunkt wählen …', onSelect: () => askSnooze(items) }
           ]
         },
         ...(waiting.length
           ? [
               {
                 kind: 'item' as const,
-                label: 'Zurueckstellung aufheben',
+                label: 'Zurückstellung aufheben',
                 onSelect: () => void window.api.messages.unsnooze(waiting)
               }
             ]
@@ -761,7 +871,7 @@ export default function App() {
             disabled: folder.total === 0,
             onSelect: () => {
               const label = folder.role === 'trash' ? 'Papierkorb' : 'Spam-Ordner'
-              if (!window.confirm(`${label} von ${account?.label ?? 'diesem Konto'} endgueltig leeren? Das laesst sich nicht rueckgaengig machen.`)) return
+              if (!window.confirm(`${label} von ${account?.label ?? 'diesem Konto'} endgültig leeren? Das lässt sich nicht rückgängig machen.`)) return
               setSelected(null)
               setSelectedIds(new Set())
               void act(
@@ -826,7 +936,7 @@ export default function App() {
           icon: <IconTrash size={15} />,
           danger: true,
           onSelect: () => {
-            if (!window.confirm(`${account.label} entfernen? Die lokale Kopie wird geloescht, auf dem Server bleibt alles unveraendert.`)) return
+            if (!window.confirm(`${account.label} entfernen? Die lokale Kopie wird gelöscht, auf dem Server bleibt alles unverändert.`)) return
             void window.api.accounts.remove(accountId)
             setView(UNIFIED_INBOX)
             setSelected(null)
@@ -1029,16 +1139,62 @@ export default function App() {
   const scopeAccountId =
     view.kind === 'folder' ? view.accountId : view.kind === 'search' ? view.query.accountId : undefined
 
+  // Die Unterzeile über der Liste: was gezeigt wird, und wie viel davon.
+  const info = viewInfo(view, accountsById, folderByKey)
+  const searching = effectiveView.kind === 'search'
+  const selecting = selectedIds.size > 1
+  const place = info.account ? `${inPlace(info.title, info.folder?.role)} · ${info.account.label}` : 'in allen Konten und Ordnern'
+  let subTitle = info.title
+  let subMeta: string
+  if (selecting) {
+    subTitle = `${selectedIds.size} ausgewählt`
+    subMeta = `von ${rows.length} ${searching ? 'Treffern' : inPlace(info.title, info.folder?.role)}`
+  } else if (searching) {
+    subTitle = loading ? 'Sucht …' : rows.length ? counted(rows.length, 'Treffer', 'Treffer') : 'Keine Treffer'
+    subMeta = place
+  } else if (view.kind === 'folder') {
+    const unread = info.folder && info.folder.role !== 'drafts' ? info.folder.unread : 0
+    subMeta = [info.account?.label ?? '', unread ? `${unread} ungelesen` : ''].filter(Boolean).join(' · ')
+  } else {
+    const byUnread = view.kind === 'unified' && (view.id === 'inbox' || view.id === 'unread')
+    const amount = byUnread ? (unreadTotal ? `${unreadTotal} ungelesen` : '') : !loading && rows.length ? String(rows.length) : ''
+    subMeta = ['Alle Konten', amount].filter(Boolean).join(' · ')
+  }
+  const searchScope = info.account
+    ? `Sucht ${inPlace(info.title, info.folder?.role)} von ${info.account.label}, auch auf dem Server`
+    : 'Sucht in allen Konten, auch auf dem Server'
+
+  const treeProps = {
+    accounts,
+    foldersByAccount,
+    statusById,
+    unreadTotal,
+    unreadByAccount,
+    viewCounts,
+    view,
+    scopeAccountId,
+    theme,
+    isOpen: isGroupOpen,
+    onToggle: toggleGroup,
+    onSelect: setView,
+    onFolderContextMenu: folderMenu,
+    onAccountContextMenu: accountMenu,
+    openGroups: tall ? Infinity : 2,
+    onDropMail: dropMail
+  }
+
+  const bottom = settings.previewPosition === 'bottom'
+
   return (
     <>
       <div
         className="app"
         ref={appRef}
         data-preview={settings.previewPosition}
-        data-folders="shown"
+        data-folders={narrow ? 'hidden' : 'shown'}
         style={
           {
-            '--list-w': `${settings.listWidth}px`,
+            ...(settings.listWidth ? { '--list-w': `${settings.listWidth}px` } : {}),
             ...(settings.listHeight ? { '--list-h': `${settings.listHeight}px` } : {})
           } as React.CSSProperties
         }
@@ -1049,6 +1205,7 @@ export default function App() {
           unreadByAccount={unreadByAccount}
           unreadTotal={unreadTotal}
           view={view}
+          theme={theme}
           onSelectUnified={() => setView(UNIFIED_INBOX)}
           onSelectAccount={(accountId) => {
             const inbox = (foldersByAccount.get(accountId) ?? []).find((f) => f.role === 'inbox')
@@ -1065,15 +1222,7 @@ export default function App() {
           onSettings={() => setShowSettings(true)}
         />
 
-        <FolderList
-          accounts={accounts}
-          foldersByAccount={foldersByAccount}
-          view={view}
-          scopeAccountId={scopeAccountId}
-          onSelect={setView}
-          onFolderContextMenu={folderMenu}
-          onAccountContextMenu={accountMenu}
-        />
+        {!narrow && <FolderColumn {...treeProps} />}
 
         <MessageList
           rows={rows}
@@ -1084,72 +1233,98 @@ export default function App() {
           folderByKey={folderByKey}
           settings={settings}
           selectedId={selected?.id ?? null}
+          menuRowId={menuRowId}
           selectedIds={selectedIds}
           searchText={search.text}
+          searchScope={searchScope}
           sync={sync}
+          title={
+            narrow && !selecting && !searching ? (
+              <FolderMenu {...treeProps} title={info.title} icon={info.icon} />
+            ) : (
+              subTitle
+            )
+          }
+          meta={subMeta}
+          subAction={
+            selecting && selectedIds.size < heads.length ? (
+              <button
+                type="button"
+                className="rv-btn rv-btn--s lv-all"
+                title="Alle auswählen · Strg+A"
+                onClick={() => setSelectedIds(new Set(heads.map((m) => m.id)))}
+              >
+                Alle auswählen
+              </button>
+            ) : selecting ? (
+              false
+            ) : undefined
+          }
           searchInputRef={searchInputRef}
+          listRef={listRef}
           onSearchChange={search.setText}
           onSelect={handleSelect}
+          onTogglePick={togglePick}
           onContextMenu={messageMenu}
+          onDragStart={startRowDrag}
           onToggleRead={(message) => {
             const members = membersOf(message)
-            void markSeen(members, members.some((m) => !m.flags.includes('\\Seen')))
+            const seen = members.some((m) => !m.flags.includes('\\Seen'))
+            for (const m of members) {
+              if (seen) keptUnread.current.delete(m.id)
+              else keptUnread.current.add(m.id)
+            }
+            void markSeen(members, seen)
           }}
           onRefresh={() => void window.api.sync.refresh()}
+          onCompose={() => startCompose('new')}
           resizer={
             <Splitter
-              axis={settings.previewPosition === 'bottom' ? 'y' : 'x'}
-              min={settings.previewPosition === 'bottom' ? 140 : 280}
+              axis={bottom ? 'y' : 'x'}
+              min={bottom ? 140 : 280}
               max={() => {
                 const app = appRef.current
-                const list = app?.querySelector('.list')?.getBoundingClientRect()
+                const list = listRef.current?.getBoundingClientRect()
                 if (!app || !list) return 800
                 // Dem Lesebereich bleibt immer genug Platz zum Lesen.
-                return settings.previewPosition === 'bottom'
-                  ? app.clientHeight - 200
-                  : app.getBoundingClientRect().right - list.left - 420
+                return bottom ? app.clientHeight - 200 : app.getBoundingClientRect().right - list.left - 420
               }}
-              onLive={(size) =>
-                appRef.current?.style.setProperty(
-                  settings.previewPosition === 'bottom' ? '--list-h' : '--list-w',
-                  `${size}px`
-                )
-              }
-              onCommit={(size) =>
-                void workspace.updateSettings(
-                  settings.previewPosition === 'bottom' ? { listHeight: size } : { listWidth: size }
-                )
-              }
+              onLive={(size) => appRef.current?.style.setProperty(bottom ? '--list-h' : '--list-w', `${size}px`)}
+              onCommit={(size) => void updateSettings(bottom ? { listHeight: size } : { listWidth: size })}
               onReset={() => {
-                if (settings.previewPosition === 'bottom') {
-                  appRef.current?.style.removeProperty('--list-h')
-                  void workspace.updateSettings({ listHeight: 0 })
-                } else {
-                  appRef.current?.style.setProperty('--list-w', '384px')
-                  void workspace.updateSettings({ listWidth: 384 })
-                }
+                // 0 heißt: die Größe, die zum Fenster passt (unten halbe-halbe, rechts 384 oder 440 px).
+                appRef.current?.style.removeProperty(bottom ? '--list-h' : '--list-w')
+                void updateSettings(bottom ? { listHeight: 0 } : { listWidth: 0 })
               }}
             />
           }
         />
 
-        {selectedIds.size > 1 ? (
-          <BulkPanel
-            count={selection.length}
+        {selecting ? (
+          <SelectionPane
+            heads={heads.filter((m) => selectedIds.has(m.id))}
+            members={selection}
+            total={heads.length}
+            accountsById={accountsById}
+            folderByKey={folderByKey}
+            foldersByAccount={foldersByAccount}
+            theme={theme}
             onMarkRead={() => void markSeen(selection, true)}
             onMarkUnread={() => void markSeen(selection, false)}
-            onFlag={() => void window.api.messages.setFlagged(selection, true)}
-            onSnooze={() => askSnooze(selection)}
+            onToggleFlag={(flag) => void window.api.messages.setFlagged(selection, flag)}
+            onSnooze={(until) => doSnooze(selection, until)}
+            onAskSnooze={() => askSnooze(selection)}
+            onMove={(path) => doMove(selection, path)}
             onArchive={() => doArchive(selection)}
             onDelete={() => doDelete(selection)}
-            onClear={() => selected && setSelectedIds(new Set([selected.id]))}
           />
         ) : (
           <Reader
             message={shown}
             thread={thread}
-            threadFolderLabel={(m) => {
+            threadFolderTag={(m) => {
               const folder = folderByKey.get(`${m.accountId}|${m.folder}`)
+              if (folder?.role === 'inbox') return null
               return folder ? folderLabel(folder.name, folder.role) : m.folder
             }}
             onOpenThreadMessage={(m) => setThreadFocusId(m.id === selected?.id ? null : m.id)}
@@ -1157,11 +1332,11 @@ export default function App() {
             onAskSnooze={() => askSnooze(readerTargets)}
             onUnsnooze={() => void window.api.messages.unsnooze(readerTargets)}
             body={body}
-            loading={bodyLoading}
             error={bodyError}
+            onRetry={retryBody}
             account={selectedAccount}
             folder={selectedFolder}
-            moveTargets={shown ? moveTargets(shown.accountId, shown.folder) : []}
+            folders={shown ? (foldersByAccount.get(shown.accountId) ?? []) : []}
             loadRemoteByDefault={settings.loadRemoteImages}
             trustedDomains={settings.remoteImageDomains}
             zoom={readerZoom}
@@ -1180,6 +1355,15 @@ export default function App() {
               setSelected(null)
             }}
             onMove={(path) => doMove(readerTargets, path)}
+            onSaveAllAttachments={() => {
+              if (!shown) return
+              void window.api.attachments
+                .saveAll(shown.accountId, shown.folder, shown.uid)
+                .then((result) => {
+                  if (result.error) showToast(result.error)
+                  else if (result.saved) showToast(`${result.saved} Anhänge gespeichert in ${result.path}.`)
+                })
+            }}
             onTrustDomain={(domain) => {
               void workspace.updateSettings({
                 remoteImageDomains: addTrustedDomain(settings.remoteImageDomains, domain)
@@ -1256,11 +1440,22 @@ export default function App() {
         />
       )}
 
+      <DragGhost accountsById={accountsById} />
+
       {toast && (
-        <div className="toast" role="status">
-          {toast.text}
+        <div
+          className="toast"
+          role="status"
+          onMouseEnter={() => holdToast(true)}
+          onMouseLeave={() => holdToast(false)}
+          onFocus={() => holdToast(true)}
+          onBlur={() => holdToast(false)}
+        >
+          {toast.done && <IconCheck size={16} />}
+          <span className="toast-text">{toast.text}</span>
           {toast.action && (
             <button
+              type="button"
               className="toast-action"
               onClick={() => {
                 const run = toast.action?.run
@@ -1268,70 +1463,13 @@ export default function App() {
                 run?.()
               }}
             >
+              {toast.action.label === 'Rückgängig' && <IconUndo size={14} />}
               {toast.action.label}
             </button>
           )}
         </div>
       )}
     </>
-  )
-}
-
-/** Steht anstelle des Lesebereichs, sobald mehrere Nachrichten markiert sind. */
-function BulkPanel({
-  count,
-  onMarkRead,
-  onMarkUnread,
-  onFlag,
-  onSnooze,
-  onArchive,
-  onDelete,
-  onClear
-}: {
-  count: number
-  onMarkRead: () => void
-  onMarkUnread: () => void
-  onFlag: () => void
-  onSnooze: () => void
-  onArchive: () => void
-  onDelete: () => void
-  onClear: () => void
-}) {
-  return (
-    <section className="reader" aria-label="Auswahl">
-      <div className="bulk">
-        <div className="bulk-inner">
-          <div className="bulk-count">{count}</div>
-          <p>
-            Nachrichten ausgewaehlt. Rechtsklick in der Liste bietet dieselben Aktionen, inklusive
-            Verschieben in einen Ordner.
-          </p>
-          <div className="bulk-actions">
-            <button className="btn btn-outline" onClick={onMarkRead}>
-              Als gelesen
-            </button>
-            <button className="btn btn-outline" onClick={onMarkUnread}>
-              Als ungelesen
-            </button>
-            <button className="btn btn-outline" onClick={onFlag}>
-              Markieren
-            </button>
-            <button className="btn btn-outline" onClick={onSnooze}>
-              Zurueckstellen
-            </button>
-            <button className="btn btn-outline" onClick={onArchive}>
-              Archivieren
-            </button>
-            <button className="btn btn-outline btn-danger" onClick={onDelete}>
-              In den Papierkorb
-            </button>
-          </div>
-          <button className="link-btn" style={{ marginTop: 16 }} onClick={onClear}>
-            Auswahl aufheben
-          </button>
-        </div>
-      </div>
-    </section>
   )
 }
 
@@ -1343,10 +1481,10 @@ function Welcome({ onAdd }: { onAdd: () => void }) {
         <p>
           Verbinde dein erstes Postfach. Gmail, iCloud, WEB.DE, GMX und alles andere mit IMAP
           funktionieren; die Servereinstellungen kommen automatisch, sobald du deine Adresse
-          eintraegst.
+          einträgst.
         </p>
         <button className="btn btn-primary" onClick={onAdd}>
-          Konto hinzufuegen
+          Konto hinzufügen
         </button>
       </div>
     </div>

@@ -17,28 +17,54 @@
   --line-strong: #cdd3db;
   --ink: #1a1d23;
   --ink-2: #4a515c;
-  --ink-3: #79818e;
+  --ink-3: #6a717d;
   --accent: #2f5bd0;
+  --accent-hover: #284fb8;
+  --accent-pressed: #2244a0;
+  /* Text auf dem Akzent: Weiss im hellen Thema, nie Weiss auf dem hellen Blau im dunklen. */
+  --on-accent: #ffffff;
   --accent-soft: #e7eefc;
+  --accent-line: #b9cbf3;
+  /* Akzentfarbe als Schrift auf --accent-soft und auf Weiss */
+  --accent-ink: #2448a8;
+  --focus: #2f5bd0;
   --selected: #e2e8f1;
+  --surface-hover: #eceff3;
+  --surface-pressed: #e1e5eb;
+  --line-hover: #98a1ae;
   --danger: #c0392f;
+  --danger-soft: #fbeceb;
   --success: #1e7a4c;
   --warn: #a97612;
-  --shadow-sheet: 0 1px 2px rgba(20, 26, 38, 0.06), 0 8px 28px rgba(20, 26, 38, 0.07);
-  --shadow-pop: 0 12px 40px rgba(16, 22, 34, 0.18);
+  --menu: #ffffff;
+  --menu-line: #e8ebef;
+  --skeleton: #e9ecf0;
+  /* Liste: Suchtreffer hinter dem Text, Hover einer Zeile auf --paper, der Stern */
+  --hl: #fcefb0;
+  --row-hover: #eef1f5;
+  --star: #e8b33a;
+  /* Typkennzeichen der Anhaenge: Grund und Schrift */
+  --pdf-bg: #fbe9e7;
+  --pdf-ink: #a3271b;
+  --doc-bg: #e6eefc;
+  --doc-ink: #234a9e;
+  --ics-bg: #e4f4ea;
+  --ics-ink: #1e6a43;
+  --shadow-card: 0 1px 2px rgba(20, 26, 38, 0.05), 0 10px 28px -18px rgba(20, 26, 38, 0.22);
+  --shadow-raise: 0 1px 2px rgba(20, 26, 38, 0.06), 0 14px 28px -14px rgba(20, 26, 38, 0.28);
+  --shadow-pop: 0 12px 40px rgba(16, 22, 34, 0.18), 0 0 0 1px rgba(16, 22, 34, 0.07);
+  --shadow-cta: inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 1px 2px rgba(20, 26, 38, 0.14),
+    0 6px 14px -6px rgba(47, 91, 208, 0.55);
 
-  /* Das Blatt behaelt seine Farbe in beiden Themes. */
+  /* Das Blatt behaelt seine Farbe in beiden Themes: HTML-Mails sind fuer Weiss gebaut. */
   --sheet: #ffffff;
   --sheet-ink: #1a1d23;
+  --sheet-line: #e2e5ea;
 
   --sans: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, Inter,
     "Helvetica Neue", Arial, sans-serif;
-  --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
   --mono: "Cascadia Mono", "SF Mono", "JetBrains Mono", Consolas, monospace;
 
-  --rail-w: 60px;
-  --folders-w: 212px;
-  --list-w: 384px;
   --radius: 7px;
   --radius-lg: 12px;
 }
@@ -51,16 +77,41 @@
   --line: #262c35;
   --line-strong: #3a424e;
   --ink: #e6e9ee;
-  --ink-2: #a7afbb;
-  --ink-3: #78818e;
+  --ink-2: #b0b8c4;
+  --ink-3: #8b94a1;
   --accent: #82a6f0;
+  --accent-hover: #97b6f4;
+  --accent-pressed: #6f95e6;
+  --on-accent: #0d1422;
   --accent-soft: #1f2b41;
+  --accent-line: #3a4e78;
+  --accent-ink: #a9c2f6;
+  --focus: #82a6f0;
   --selected: #262d39;
+  --surface-hover: #262c36;
+  --surface-pressed: #2d3440;
+  --line-hover: #5a6472;
   --danger: #e8776c;
+  --danger-soft: #3a2326;
   --success: #4fb383;
   --warn: #d9ad4e;
-  --shadow-sheet: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 34px rgba(0, 0, 0, 0.34);
-  --shadow-pop: 0 16px 48px rgba(0, 0, 0, 0.55);
+  --menu: #242a35;
+  --menu-line: #313845;
+  --skeleton: #262c36;
+  --hl: #4d4216;
+  --row-hover: #1d2129;
+  --pdf-bg: #3a2326;
+  --pdf-ink: #f2a59c;
+  --doc-bg: #1f2b41;
+  --doc-ink: #a9c2f6;
+  --ics-bg: #1b3328;
+  --ics-ink: #8fd4ad;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px -18px rgba(0, 0, 0, 0.6);
+  --shadow-raise: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 32px -14px rgba(0, 0, 0, 0.7);
+  --shadow-pop: 0 16px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --shadow-cta: inset 0 -1px 0 rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.3),
+    0 6px 16px -8px rgba(130, 166, 240, 0.5);
+  --sheet-line: #2a303a;
 }
 
 * {
@@ -105,11 +156,7 @@ option {
   color: var(--ink);
 }
 
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-  border-radius: 3px;
-}
+/* Der Fokusring steht in interaction.css. */
 
 ::selection {
   background: var(--accent-soft);
@@ -137,853 +184,44 @@ option {
 /* ------------------------------------------------------------- Grundgeruest */
 
 /*
-  Die Breite der Liste stellt man selbst ein (Trenner am rechten Rand). Nach
-  oben gedeckelt, damit ein schmaler gewordenes Fenster den Lesebereich nicht
-  zerdrueckt.
+  Kontenschiene, Ordner, Liste, Lesebereich. Die Liste stellt man selbst ein
+  (Trenner am rechten Rand, list.css); ohne eigene Einstellung ist sie 384 px,
+  im breiten Fenster 440. Nach oben gedeckelt, damit ein schmal gewordenes
+  Fenster den Lesebereich nicht zerdrueckt. Unter etwa 1200 px blendet App.tsx
+  die Ordnerspalte aus (data-folders="hidden").
 */
 .app {
+  --fd-w: 224px;
+  --list-w: 384px;
   --list-col: clamp(260px, var(--list-w), 60vw);
   display: grid;
-  grid-template-columns: var(--rail-w) var(--folders-w) var(--list-col) minmax(0, 1fr);
+  grid-template-columns: 60px var(--fd-w) var(--list-col) minmax(0, 1fr);
   height: 100%;
 }
-
-.app[data-folders='hidden'] {
-  grid-template-columns: var(--rail-w) 0 var(--list-col) minmax(0, 1fr);
+@media (min-width: 1800px) {
+  .app {
+    --fd-w: 248px;
+    --list-w: 440px;
+  }
 }
-
+.app[data-folders='hidden'] {
+  grid-template-columns: 60px var(--list-col) minmax(0, 1fr);
+}
 .app[data-preview='bottom'] {
-  grid-template-columns: var(--rail-w) var(--folders-w) minmax(0, 1fr);
+  grid-template-columns: 60px var(--fd-w) minmax(0, 1fr);
   grid-template-rows: var(--list-h, minmax(0, 1fr)) minmax(0, 1fr);
 }
-.app[data-preview='bottom'] .rail,
-.app[data-preview='bottom'] .folders {
+.app[data-preview='bottom'][data-folders='hidden'] {
+  grid-template-columns: 60px minmax(0, 1fr);
+}
+/* Der Lesebereich bekommt eine eigene Stapelebene: sonst laege seine Leiste (z-index 5)
+   ueber dem Trenner der Liste, der unten in ihn hineinragt. */
+.app > .reader {
+  isolation: isolate;
+}
+.app[data-preview='bottom'] > .lv-rail,
+.app[data-preview='bottom'] > .lv-fd {
   grid-row: 1 / span 2;
-}
-
-@media (max-width: 1180px) {
-  .app {
-    grid-template-columns: var(--rail-w) 0 var(--list-col) minmax(0, 1fr);
-  }
-  .folders {
-    display: none;
-  }
-}
-
-/* --------------------------------------------------------- Kontenschiene */
-
-.rail {
-  background: var(--surface-2);
-  border-right: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-/*
-  Jedes Konto ist eine Kachel mit farbiger Kante links. Die Kante ist der
-  Identitaetstraeger: dieselbe Farbe markiert spaeter Nachrichtenzeilen im
-  Sammelposteingang.
-*/
-.rail-tile {
-  position: relative;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-  border: none;
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--ink-2);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  font-weight: 600;
-  font-size: 13px;
-  letter-spacing: 0.01em;
-  overflow: hidden;
-}
-
-.rail-tile::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  border-radius: 0 2px 2px 0;
-  background: var(--tile-color, var(--line-strong));
-  transition: inset 120ms ease, width 120ms ease;
-}
-
-.rail-tile:hover {
-  background: var(--surface-3);
-  color: var(--ink);
-}
-
-.rail-tile[aria-pressed='true'] {
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: 0 1px 2px rgba(20, 26, 38, 0.1);
-}
-
-.rail-tile[aria-pressed='true']::before {
-  top: 0;
-  bottom: 0;
-  width: 4px;
-}
-
-.rail-badge {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 4px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 15px;
-  text-align: center;
-}
-
-.rail-tile[data-error='true']::after {
-  content: '';
-  position: absolute;
-  bottom: 3px;
-  right: 4px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--danger);
-}
-
-.rail-spacer {
-  flex: 1;
-}
-
-.rail-divider {
-  width: 22px;
-  height: 1px;
-  background: var(--line-strong);
-  flex: 0 0 auto;
-  margin: 2px 0;
-}
-
-/* -------------------------------------------------------------- Ordner */
-
-.folders {
-  background: var(--surface-2);
-  border-right: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.folders-head {
-  padding: 14px 14px 8px;
-}
-
-.folders-title {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.008em;
-  margin: 0;
-  color: var(--ink);
-}
-
-.folders-sub {
-  margin: 2px 0 0;
-  font-size: 11.5px;
-  color: var(--ink-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.folders-scroll {
-  flex: 1;
-  overflow-y: auto;
-  padding: 4px 8px 12px;
-}
-
-.folder-group {
-  margin-top: 10px;
-}
-
-.folder-group-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--ink-3);
-  padding: 4px 6px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.folder-group-label .swatch {
-  width: 7px;
-  height: 7px;
-  border-radius: 2px;
-  flex: 0 0 auto;
-}
-
-.folder-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 5px 8px;
-  border: none;
-  border-radius: var(--radius);
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  color: var(--ink-2);
-  font-size: 13px;
-}
-
-.folder-item:hover {
-  background: var(--surface-3);
-}
-
-.folder-item[aria-current='true'] {
-  background: var(--selected);
-  color: var(--ink);
-  font-weight: 550;
-}
-
-.folder-item .label {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.folder-item .count {
-  font-size: 11.5px;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
-}
-
-.folder-item[data-unread='true'] .label {
-  color: var(--ink);
-  font-weight: 600;
-}
-.folder-item[data-unread='true'] .count {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.folder-icon {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-  opacity: 0.65;
-}
-
-/* ------------------------------------------------------ Nachrichtenliste */
-
-.list {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border-right: 1px solid var(--line);
-  overflow: hidden;
-}
-
-.list-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--line);
-}
-
-/* ------------------------------------------------------------ Abrufknopf */
-
-/*
-  Der Knopf ist selbst die Statusanzeige. Statt einer Blase daneben schiebt er
-  sich nach rechts auf und traegt den Text in sich; das Suchfeld daneben gibt
-  die Breite her und holt sie sich zurueck, sobald die Meldung vorbei ist.
-*/
-.refresh-btn {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  height: 34px;
-  padding: 0 7px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  color: var(--ink-2);
-  cursor: pointer;
-  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
-}
-
-.refresh-btn:hover {
-  background: var(--surface-3);
-  color: var(--ink);
-}
-
-.refresh-btn > svg {
-  flex: 0 0 auto;
-}
-
-.refresh-label {
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 12px;
-  line-height: 1;
-  transition: max-width 240ms ease, opacity 180ms ease, padding-left 240ms ease;
-}
-
-.refresh-btn[data-open='true'] .refresh-label {
-  /* Genug fuer "Wird abgerufen"; laengere Serverfehler werden gekuerzt und
-     stehen vollstaendig im Tooltip. */
-  max-width: 148px;
-  opacity: 1;
-  padding-left: 7px;
-}
-
-/* Gelb waehrend des Abrufs, gruen danach, rot wenn etwas schiefging. */
-.refresh-btn[data-tone='busy'] {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-}
-
-.refresh-btn[data-tone='done'] {
-  color: var(--success);
-  border-color: color-mix(in srgb, var(--success) 55%, var(--line));
-  background: color-mix(in srgb, var(--success) 12%, transparent);
-}
-
-.refresh-btn[data-tone='error'] {
-  color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 55%, var(--line));
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .refresh-label {
-    transition: none;
-  }
-}
-
-.search {
-  flex: 1;
-  /* Ohne dies bliebe das Feld auf Inhaltsbreite stehen und der Knopf koennte
-     sich nicht aufschieben. */
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 9px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-}
-
-.search:focus-within {
-  border-color: var(--accent);
-  background: var(--surface);
-}
-
-.search input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  outline: none;
-  font-size: 13px;
-  min-width: 0;
-}
-
-.search input::placeholder {
-  color: var(--ink-3);
-}
-
-.list-scroll {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.row {
-  position: relative;
-  display: block;
-  width: 100%;
-  border: none;
-  border-bottom: 1px solid var(--line);
-  background: transparent;
-  text-align: left;
-  /* Links eine feste Spalte fuer den Statuspunkt: gelesene und ungelesene
-     Zeilen bleiben dadurch exakt gleich ausgerichtet. */
-  padding: 11px 14px 11px 30px;
-  cursor: pointer;
-  color: var(--ink-2);
-}
-
-/*
-  Der Punkt ist zugleich Anzeige und Schalter: ein Klick darauf wechselt
-  zwischen gelesen und ungelesen, ohne die Nachricht zu oeffnen. Bei gelesenen
-  Zeilen taucht er beim Ueberfahren als leerer Ring auf - so ist zu sehen, dass
-  dort etwas anklickbar ist, ohne dass die Liste im Ruhezustand unruhig wird.
-*/
-.row-dot {
-  position: absolute;
-  left: 11px;
-  top: 14px;
-  width: 9px;
-  height: 9px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-  transition: background-color 90ms ease, box-shadow 90ms ease;
-}
-
-.row[data-unread='true'] .row-dot {
-  background: var(--accent);
-}
-
-.row:hover .row-dot {
-  box-shadow: inset 0 0 0 1.5px var(--line-strong);
-}
-
-.row[data-unread='true']:hover .row-dot {
-  box-shadow: none;
-  background: var(--accent);
-}
-
-.row[data-unread='true'] .row-dot:hover {
-  background: var(--ink-3);
-}
-
-.row-dot:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.list[data-density='compact'] .row-dot {
-  top: 10px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .row-dot {
-    transition: none;
-  }
-}
-
-/*
-  Die farbige Kante erscheint nur dort, wo sie etwas unterscheidet: in
-  Sammelansichten und Suchergebnissen. In einem einzelnen Kontoordner waere sie
-  reine Dekoration.
-*/
-.row[data-show-account='true']::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--row-color);
-}
-
-.row:hover {
-  background: var(--surface-2);
-}
-
-.row[aria-selected='true'] {
-  background: var(--selected);
-}
-
-.row-top {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.row-sender {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-}
-
-.row-date {
-  flex: 0 0 auto;
-  font-size: 11.5px;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-
-.row-subject {
-  margin-top: 1px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13.5px;
-  color: var(--ink-2);
-}
-
-.row-subject .text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-  flex: 1;
-}
-
-.row-snippet {
-  margin-top: 2px;
-  font-size: 12.5px;
-  color: var(--ink-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.list[data-density='compact'] .row {
-  padding-top: 7px;
-  padding-bottom: 7px;
-}
-.list[data-density='compact'] .row-snippet {
-  display: none;
-}
-
-/* Ungelesenes traegt Gewicht, nicht Farbe. */
-.row[data-unread='true'] .row-sender {
-  font-weight: 650;
-  color: var(--ink);
-}
-.row[data-unread='true'] .row-subject {
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.row-marks {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex: 0 0 auto;
-  color: var(--ink-3);
-}
-
-.row-marks .flagged {
-  color: #d9a441;
-}
-
-.row-account {
-  font-size: 11px;
-  color: var(--ink-3);
-  padding: 0 5px;
-  border-radius: 3px;
-  background: var(--surface-3);
-  flex: 0 0 auto;
-}
-
-/* --------------------------------------------------------- Lesebereich */
-
-.reader {
-  display: flex;
-  flex-direction: column;
-  background: var(--paper);
-  overflow: hidden;
-  min-width: 0;
-  min-height: 0;
-}
-
-.reader-bar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-  flex-wrap: wrap;
-}
-
-/*
-  min-height: 0 ist hier keine Kosmetik: ohne die Angabe waechst der Flex-Kasten
-  auf die volle Hoehe der Mail, statt zu scrollen - lange Nachrichten waeren
-  dann unten schlicht abgeschnitten.
-*/
-/*
-  align-items ist hier der Unterschied zwischen "lesbar" und "abgeschnitten":
-  in der Voreinstellung streckt der Flex-Kasten das Blatt auf seine eigene
-  Hoehe, statt es wachsen zu lassen. Zusammen mit dem overflow: hidden des
-  Blattes endete die Mail dann am unteren Fensterrand - und weil nichts
-  ueberstand, gab es auch nichts zu scrollen.
-*/
-.reader-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  /* Das Blatt fuellt den Lesebereich bis auf diesen Rand, auch im Vollbild. */
-  padding: 16px 16px 32px;
-  display: flex;
-  /* safe: eine vergroesserte Mail darf links nicht aus dem Scrollbereich ragen. */
-  justify-content: safe center;
-  align-items: flex-start;
-}
-
-/* Vergroessert waechst das Blatt mit der Mail; die Breite setzt der Lesebereich. */
-.sheet[data-zoomed='true'] {
-  overflow: visible;
-  max-width: none;
-}
-
-.sheet {
-  width: 100%;
-  background: var(--sheet);
-  color: var(--sheet-ink);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sheet);
-  overflow: hidden;
-  animation: sheet-in 140ms ease-out;
-}
-
-@keyframes sheet-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sheet {
-    animation: none;
-  }
-}
-
-.sheet-head {
-  padding: 26px 32px 18px;
-  border-bottom: 1px solid #e8eaee;
-}
-
-.sheet-subject {
-  margin: 0 0 14px;
-  font-size: 21px;
-  line-height: 1.28;
-  font-weight: 600;
-  letter-spacing: -0.014em;
-  color: var(--sheet-ink);
-}
-
-.sheet-from {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: 13px;
-}
-
-.sheet-from .name {
-  font-weight: 600;
-  color: var(--sheet-ink);
-}
-
-.sheet-from .addr,
-.sheet-meta {
-  color: #6b7280;
-  font-size: 12.5px;
-}
-
-.sheet-meta {
-  margin-top: 4px;
-  line-height: 1.6;
-}
-
-.sheet-date {
-  margin-left: auto;
-  color: #6b7280;
-  font-size: 12.5px;
-  white-space: nowrap;
-}
-
-.sheet-body {
-  padding: 0;
-}
-
-.sheet-body iframe {
-  display: block;
-  width: 100%;
-  border: 0;
-  background: #fff;
-}
-
-/* Reiner Text bekommt echte Typografie statt eines Monospace-Kastens. */
-.plain-body {
-  font-family: var(--serif);
-  font-size: 15.5px;
-  line-height: 1.68;
-  color: #23262c;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  max-width: 68ch;
-  padding: 26px 32px 32px;
-}
-
-.plain-body a {
-  color: #1f4fb8;
-}
-
-.remote-notice {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  padding: 9px 32px;
-  background: #fdf6e3;
-  border-bottom: 1px solid #f0e5c8;
-  color: #6a5620;
-  font-size: 12.5px;
-}
-
-.remote-actions {
-  display: flex;
-  gap: 14px;
-  flex: 0 0 auto;
-  margin-left: auto;
-}
-
-/*
-  Anhaenge sitzen zwischen Kopf und Text. Sie gehoeren zur Nachricht, nicht in
-  ihren Anhang - deshalb eine eigene, ruhige Bank statt eines Anhaengsels.
-*/
-.attachments {
-  padding: 14px 32px 16px;
-  border-bottom: 1px solid #e8eaee;
-  background: #fbfcfd;
-}
-
-.attachments-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #4a515c;
-}
-
-.attachments-head .size {
-  font-weight: 400;
-  color: #8b929d;
-  font-variant-numeric: tabular-nums;
-}
-
-.attachment-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.attachment {
-  display: flex;
-  align-items: stretch;
-  border: 1px solid #dfe2e7;
-  border-radius: var(--radius);
-  background: #ffffff;
-  overflow: hidden;
-  max-width: 300px;
-}
-
-.attachment:hover {
-  border-color: #b9c0ca;
-}
-
-.attachment-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  padding: 7px 4px 7px 7px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  color: #23262c;
-}
-
-.attachment-main:hover {
-  background: #f2f4f7;
-}
-
-/* Feste Kachel, damit unterschiedlich grosse Bilder eine ruhige Reihe ergeben. */
-.attachment-thumb {
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  border-radius: 5px;
-  background: #eef1f5;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-}
-
-.attachment-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.attachment-ext {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  color: #6b7280;
-}
-
-.attachment-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.attachment .name {
-  font-size: 12.5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.attachment .size {
-  font-size: 11.5px;
-  color: #6b7280;
-  font-variant-numeric: tabular-nums;
-}
-
-.attachment-save {
-  flex: 0 0 auto;
-  width: 34px;
-  border: none;
-  border-left: 1px solid #ebedf0;
-  background: transparent;
-  color: #6b7280;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-}
-
-.attachment-save:hover {
-  background: #eef1f5;
-  color: #23262c;
 }
 
 /* ------------------------------------------------------------- Buttons */
@@ -1036,24 +274,6 @@ option {
 
 .btn-icon {
   padding: 6px;
-}
-
-.btn-compose {
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border-radius: var(--radius);
-  background: var(--accent);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  border: none;
-  cursor: pointer;
-  flex: 0 0 auto;
-}
-
-.btn-compose:hover {
-  filter: brightness(1.1);
 }
 
 .spacer {
@@ -1466,162 +686,16 @@ option {
 
 /* ------------------------------------------------------------- Diverses */
 
-/* Griff zwischen Liste und Lesebereich. Breit genug zum Treffen, sichtbar erst beim Darueberfahren. */
-.splitter {
-  position: absolute;
-  z-index: 6;
-  top: 0;
-  right: 0;
-  width: 7px;
-  height: 100%;
-  cursor: col-resize;
-  touch-action: none;
-}
-.splitter[data-axis='y'] {
-  top: auto;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 7px;
-  cursor: row-resize;
-}
-.splitter::after {
-  content: '';
-  position: absolute;
-  inset: 0 0 0 auto;
-  width: 2px;
-  background: transparent;
-  transition: background 120ms ease;
-}
-.splitter[data-axis='y']::after {
-  inset: auto 0 0 0;
-  width: auto;
-  height: 2px;
-}
-.splitter:hover::after,
-.splitter:focus-visible::after,
-.splitter[data-active='true']::after {
-  background: var(--accent);
-}
-.splitter:focus-visible {
-  outline: none;
-}
 /* Waehrend des Ziehens: kein Markieren von Text, und der Nachrichtenrahmen faengt die Maus nicht ab. */
 body.resizing {
   user-select: none;
   cursor: col-resize;
 }
+body.resizing[data-resize-axis='y'] {
+  cursor: row-resize;
+}
 body.resizing iframe {
   pointer-events: none;
-}
-
-/* Unterhaltungen: Zaehler in der Liste, Verlauf ueber dem Blatt. */
-.row-count {
-  flex: 0 0 auto;
-  font-size: 11px;
-  color: var(--ink-2);
-  padding: 0 6px;
-  border-radius: 9px;
-  background: var(--surface-3);
-  font-variant-numeric: tabular-nums;
-}
-
-.row-snooze {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 11px;
-  white-space: nowrap;
-}
-.row-snooze[data-over='true'] {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-/* Ein Auswahlfeld richtet sich nach seinem laengsten Eintrag - in der Leiste waere das zu breit. */
-.reader-bar select.btn {
-  max-width: 150px;
-}
-
-/* Verlauf und Blatt stehen untereinander; der Lesebereich selbst legt nebeneinander. */
-.reader-stack {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.thread {
-  margin: 0 0 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  overflow: hidden;
-}
-.thread-head {
-  padding: 7px 12px;
-  font-size: 11.5px;
-  color: var(--ink-3);
-  border-bottom: 1px solid var(--line);
-}
-.thread-items {
-  max-height: 188px;
-  overflow-y: auto;
-}
-.thread-item {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  width: 100%;
-  padding: 6px 12px;
-  border: 0;
-  background: none;
-  color: var(--ink-2);
-  font: inherit;
-  font-size: 12.5px;
-  text-align: left;
-  cursor: pointer;
-}
-.thread-item:hover {
-  background: var(--surface-2);
-}
-.thread-item[aria-current='true'] {
-  background: var(--selected);
-  color: var(--ink);
-}
-.thread-item[data-unread='true'] .who {
-  font-weight: 650;
-  color: var(--ink);
-}
-.thread-item .who {
-  flex: 0 0 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.thread-item .what {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--ink-3);
-}
-.thread-item .where,
-.thread-item .when {
-  flex: 0 0 auto;
-  font-size: 11.5px;
-  color: var(--ink-3);
-}
-
-.snooze-notice {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0 0 14px;
-  padding: 8px 12px;
-  border-radius: var(--radius);
-  background: var(--accent-soft);
-  font-size: 12.5px;
 }
 
 .dialog-small {
@@ -1645,63 +719,66 @@ body.resizing iframe {
   line-height: 1.45;
 }
 
-.toast-action {
-  margin-left: 14px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-weight: 650;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
+/* Die eine Meldung der App: unten mittig, dunkel, ihre Aktion ein echter Knopf (Entwurf Liste v2). */
 .toast {
   position: fixed;
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--ink);
-  color: var(--paper);
-  padding: 10px 16px;
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-pop);
-  font-size: 13px;
-  z-index: 80;
-  max-width: 560px;
-}
-
-.status-line {
-  padding: 6px 12px;
-  border-top: 1px solid var(--line);
-  font-size: 11.5px;
-  color: var(--ink-3);
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--surface-2);
+  gap: 12px;
+  min-height: 44px;
+  padding: 7px 6px 7px 14px;
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: var(--shadow-pop);
+  font: 500 13.5px/1.3 var(--sans);
+  z-index: 80;
+  max-width: min(640px, calc(100vw - 32px));
+  animation: toast-in 200ms var(--ease, ease-out);
 }
-
-.dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex: 0 0 auto;
+.toast:not(:has(.toast-action)) {
+  padding-right: 16px;
 }
-
-.spin {
-  animation: spin 900ms linear infinite;
+.toast > svg {
+  flex: none;
 }
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+.toast-action {
+  flex: none;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--paper) 35%, transparent);
+  background: transparent;
+  color: var(--paper);
+  font: 600 13px/1 var(--sans);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.toast-action:focus-visible {
+  outline: 2px solid var(--paper);
+  outline-offset: 2px;
+}
+@media (hover: hover) {
+  .toast-action:hover {
+    background: color-mix(in srgb, var(--paper) 14%, transparent);
   }
 }
-
+/* Nur eingeblendet, nicht geschoben: ein Knopf, der sich bewegt, laesst sich nicht sicher treffen. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .spin {
+  .toast {
     animation: none;
   }
 }
@@ -1851,49 +928,6 @@ body.resizing iframe {
   height: 1px;
   background: var(--line);
   margin: 4px 6px;
-}
-
-/* Auswahl mehrerer Nachrichten */
-
-.row[data-multi='true'] {
-  background: var(--accent-soft);
-}
-
-.row[data-multi='true'][aria-selected='true'] {
-  background: var(--selected);
-}
-
-.bulk {
-  height: 100%;
-  display: grid;
-  place-items: center;
-  padding: 40px;
-}
-
-.bulk-inner {
-  text-align: center;
-  max-width: 420px;
-}
-
-.bulk-count {
-  font-size: 30px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  line-height: 1.1;
-}
-
-.bulk-inner p {
-  margin: 6px 0 20px;
-  color: var(--ink-3);
-  font-size: 13.5px;
-}
-
-.bulk-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
 }
 
 /* ------------------------------------------------------------- Regeln */

@@ -51,6 +51,14 @@ export interface ConnectionEvents {
  * Ohne sie stand eine angeklickte Mail hinter dem ganzen Abgleich an und kam
  * bei einem langsamen Server erst nach vielen Sekunden.
  */
+/** Ein Anhang samt Inhalt; `partId` ist sein Platz in der Liste, wie in MessageBody. */
+export interface AttachmentData {
+  partId: string
+  filename: string
+  contentType: string
+  data: Buffer
+}
+
 export class AccountConnection {
   private client: ImapFlow | null = null
   private connecting: Promise<ImapFlow> | null = null
@@ -534,19 +542,23 @@ export class AccountConnection {
   }
 
   /** Holt genau einen Anhang als Buffer - erst beim Klick auf "Speichern". */
-  async getAttachment(folderPath: string, uid: number, partId: string): Promise<{ filename: string; contentType: string; data: Buffer } | null> {
+  async getAttachment(folderPath: string, uid: number, partId: string): Promise<AttachmentData | null> {
+    const all = await this.getAttachments(folderPath, uid)
+    return all?.find((att) => att.partId === partId) ?? null
+  }
+
+  /** Alle Anhaenge einer Mail aus einem einzigen Abruf, fuer "Alle speichern". */
+  async getAttachments(folderPath: string, uid: number): Promise<AttachmentData[] | null> {
     return this.read(folderPath, async (client) => {
       const dl = await client.download(String(uid), undefined, { uid: true })
       if (!dl?.content) return null
       const parsed = await simpleParser(dl.content)
-      const index = Number(partId)
-      const att = parsed.attachments[index]
-      if (!att) return null
-      return {
+      return parsed.attachments.map((att, index) => ({
+        partId: String(index),
         filename: att.filename || `anhang-${index + 1}`,
         contentType: att.contentType || 'application/octet-stream',
         data: att.content as Buffer
-      }
+      }))
     })
   }
 
@@ -653,6 +665,16 @@ export class AccountConnection {
     )
     this.events.onMessages(this.account.id, folderPath)
     this.events.onFolders(this.account.id)
+  }
+
+  /** UIDs der Mails mit diesen Message-IDs in einem Ordner - eine verschobene Mail hat dort eine neue UID. */
+  async findByMessageIds(folderPath: string, messageIds: string[]): Promise<number[]> {
+    if (!messageIds.length) return []
+    const criteria: SearchObject[] = messageIds.map((id) => ({ header: { 'message-id': `<${id}>` } }))
+    const query: SearchObject = criteria.length === 1 ? criteria[0] : { or: criteria }
+    return this.enqueue(() =>
+      this.withMailbox(folderPath, async (client) => (await client.search(query, { uid: true })) || [])
+    )
   }
 
   async move(folderPath: string, uids: number[], targetPath: string): Promise<void> {
