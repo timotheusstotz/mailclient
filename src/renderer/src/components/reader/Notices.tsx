@@ -1,5 +1,17 @@
-import { dayTime } from '../../lib/format'
-import { IconClock, IconImage, IconImageOff, IconUndo } from '../icons'
+import { dayTime, savedDay } from '../../lib/format'
+import { IconClock, IconCompose, IconImage, IconImageOff, IconUndo } from '../icons'
+
+/** Ein Entwurf im Lesebereich: noch nicht gesendet, und wann zuletzt gespeichert. */
+export function DraftNotice({ savedAt }: { savedAt: number }) {
+  return (
+    <div className="rv-note rv-note--draft">
+      <IconCompose size={15} className="rv-note-icon" />
+      <span className="rv-note-text">
+        Entwurf, noch nicht gesendet · gespeichert <b>{savedDay(savedAt)}</b>
+      </span>
+    </div>
+  )
+}
 
 /** Zurueckgestellt: bis wann, und der Weg zurueck. */
 export function SnoozeNotice({ until, onUnsnooze }: { until: number; onUnsnooze: () => void }) {

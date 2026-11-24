@@ -401,3 +401,53 @@ export const IconFolderMove = ({ size, className }: IconProps) =>
     className,
     'folder-move'
   )
+
+/** Pfeil in eine Linie: ein Fenster in die Leiste legen. */
+export const IconMinimize = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M8 2.6v6.8" />
+      <path d="m5 6.4 3 3 3-3" />
+      <path d="M3.2 12.8h9.6" />
+    </>,
+    size,
+    className,
+    'minimize'
+  )
+
+/** Diskette: als Entwurf speichern. */
+export const IconSave = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M3.2 2.6h7.4l2.2 2.2v8.6H3.2z" />
+      <path d="M5.4 2.6v3.4h4.8V2.6" />
+      <path d="M5.4 13.4V9.4h5.4v4" />
+    </>,
+    size,
+    className,
+    'save'
+  )
+
+/** Blatt mit Zeilen: ein Textbaustein. */
+export const IconTemplate = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M3.4 2.6h9.2v10.8H3.4z" />
+      <path d="M6 5.4h4M6 8h4M6 10.6h2" />
+    </>,
+    size,
+    className,
+    'template'
+  )
+
+/** Warndreieck: etwas ist schiefgegangen, der Text ist aber sicher. */
+export const IconWarn = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M7 2.7 1.8 11.7a1.2 1.2 0 0 0 1 1.8h10.4a1.2 1.2 0 0 0 1-1.8L9 2.7a1.2 1.2 0 0 0-2 0z" />
+      <path d="M8 6v3.2M8 11.2h.01" />
+    </>,
+    size,
+    className,
+    'warn'
+  )

@@ -1,14 +1,17 @@
-import { memo, type ReactNode } from 'react'
+import { memo, useRef, type ReactNode } from 'react'
 import type { MessageSummary } from '@shared/types'
 import type { ThreadRow } from '@shared/threads'
 import { shortDate, snoozeTag } from '../../lib/format'
 import { endMailDrag, useMailDrag } from '../../lib/mailDrag'
-import { IconCheck, IconClock, IconPaperclip, IconStarFilled, IconUndo } from '../icons'
+import { useLeaving, useRowLeave } from '../../lib/listMotion'
+import { IconCheck, IconClock, IconPaperclip, IconStarFilled, IconTrash, IconUndo } from '../icons'
 
 export interface RowProps {
   row: ThreadRow
-  /** Wer in der Zeile steht: Absender, in Gesendet und Entwürfen der Empfänger */
+  /** Wer in der Zeile steht: Absender, in Gesendet der Empfänger, in Entwürfen der erste Empfänger (leer ohne) */
   partner: string
+  /** Ein Entwurf: "An" vor dem Empfänger, kein Punkt für ungelesen, Doppelklick schreibt weiter */
+  draft?: boolean
 
   /** Ordner als Etikett, nur in Suchergebnissen außerhalb des Posteingangs */
   folderTag?: string
@@ -30,10 +33,14 @@ export interface RowProps {
   /** Suchwörter, im Absender und im Betreff hervorgehoben */
   marks: { from: string[]; subject: string[] }
   onClick: (message: MessageSummary, event: React.MouseEvent) => void
+  /** Doppelklick: in einem eigenen Fenster oeffnen (ein Entwurf: weiterschreiben) */
+  onOpen: (message: MessageSummary) => void
   /** Kästchen in der Mehrfachauswahl: schaltet nur diese Zeile um */
   onTogglePick: (message: MessageSummary) => void
   onContextMenu: (event: React.MouseEvent, message: MessageSummary) => void
   onToggleRead: (message: MessageSummary) => void
+  /** Der Papierkorb beim Hovern; fehlt im Papierkorb selbst. */
+  onTrash?: (message: MessageSummary) => void
   /** Die Zeile wird gezogen: was mitgeht, entscheidet die Auswahl */
   onDragStart: (event: React.DragEvent, message: MessageSummary) => void
 }
@@ -46,35 +53,50 @@ export interface RowProps {
 export const MessageRow = memo(function MessageRow(props: RowProps) {
   const { row } = props
   const head = row.head
-  const unread = row.members.some((m) => !m.flags.includes('\\Seen'))
+  const unread = !props.draft && row.members.some((m) => !m.flags.includes('\\Seen'))
   const flagged = row.members.some((m) => m.flags.includes('\\Flagged'))
   const attachment = row.members.some((m) => m.hasAttachments)
-  const subject = head.subject || '(kein Betreff)'
+  const subject = head.subject || (props.draft ? 'Kein Betreff' : '(kein Betreff)')
   const readLabel = unread ? 'Als gelesen markieren' : 'Als ungelesen markieren'
   // Die gezogenen Zeilen treten zurueck, solange sie unterwegs sind.
   const drag = useMailDrag()
   const lifted = drag ? row.members.some((m) => drag.ids.has(m.id)) : false
+  // Geloescht oder verschoben: die Zeile blendet aus und klappt zu, bis die Daten sie entfernen.
+  const ref = useRef<HTMLDivElement>(null)
+  const memberIds = row.members.map((m) => m.id)
+  const leaving = useLeaving(memberIds)
+  useRowLeave(ref, leaving, memberIds)
+
+  // Bei Mehrfachauswahl hat das Auswahlfeld rechts die Aktionen.
+  const trashable = Boolean(props.onTrash) && !props.selecting
 
   return (
     <div
+      ref={ref}
       className="lv-r"
+      data-row={head.id}
       role="option"
       tabIndex={-1}
       aria-selected={props.selecting ? props.picked : props.open}
       data-unread={unread}
       data-open={props.open || undefined}
       data-lifted={lifted || undefined}
+      data-leaving={leaving?.kind}
+      data-lift={leaving?.lift || undefined}
       data-menu={props.menuOpen || undefined}
       data-picked={(props.selecting && props.picked) || undefined}
+      data-del={trashable || undefined}
 
       draggable
       onDragStart={(event) => props.onDragStart(event, head)}
       onDragEnd={() => endMailDrag()}
       onClick={(event) => props.onClick(head, event)}
+      title={props.draft ? 'Doppelklick öffnet den Entwurf zum Weiterschreiben' : undefined}
+      onDoubleClick={() => props.onOpen(head)}
       onContextMenu={(event) => props.onContextMenu(event, head)}
     >
 
-      {props.selecting ? (
+      {props.draft && !props.selecting ? null : props.selecting ? (
         <span
           className="lv-cb"
           aria-hidden="true"
@@ -102,9 +124,22 @@ export const MessageRow = memo(function MessageRow(props: RowProps) {
         />
       )}
       <span className="lv-r-from">
-        <span className="lv-r-nm" title={props.partner}>
-          {mark(props.partner, props.marks.from)}
-        </span>
+        {props.draft ? (
+          <span className="lv-r-nm" title={props.partner || undefined}>
+            {props.partner ? (
+              <>
+                <span className="lv-r-pre">An</span>
+                {mark(props.partner, props.marks.from)}
+              </>
+            ) : (
+              <span className="lv-none">Kein Empfänger</span>
+            )}
+          </span>
+        ) : (
+          <span className="lv-r-nm" title={props.partner}>
+            {mark(props.partner, props.marks.from)}
+          </span>
+        )}
         {props.count > 1 && (
           <span className="lv-r-cnt" title={`Unterhaltung mit ${props.count} Nachrichten`}>
             {props.count}
@@ -114,7 +149,7 @@ export const MessageRow = memo(function MessageRow(props: RowProps) {
 
       <span className="lv-r-date">{shortDate(head.date)}</span>
       <span className="lv-r-subj" title={subject}>
-        {mark(subject, props.marks.subject)}
+        {props.draft && !head.subject ? <span className="lv-none">Kein Betreff</span> : mark(subject, props.marks.subject)}
       </span>
       <span className="lv-r-marks">
         {props.folderTag && <span className="lv-r-tag">{props.folderTag}</span>}
@@ -142,6 +177,26 @@ export const MessageRow = memo(function MessageRow(props: RowProps) {
         )}
       </span>
       {props.comfortable && <span className="lv-r-snip">{props.snippet}</span>}
+      {/* Nur am rechten Rand faehrt der Papierkorb heraus, nicht ueber der ganzen Zeile (Tim). */}
+      {trashable && <span className="lv-r-delzone" aria-hidden="true" />}
+      {trashable && (
+        <button
+          type="button"
+          className="lv-r-del"
+          tabIndex={props.tabbable ? 0 : -1}
+          aria-label="In den Papierkorb"
+          title="In den Papierkorb (Entf)"
+          onClick={(event) => {
+            // Nur loeschen - die Zeile soll davon weder ausgewaehlt noch geoeffnet werden.
+            event.stopPropagation()
+            props.onTrash?.(head)
+          }}
+          onDoubleClick={(event) => event.stopPropagation()}
+        >
+          <IconTrash size={18} />
+          Papierkorb
+        </button>
+      )}
     </div>
   )
 })

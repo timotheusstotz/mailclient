@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { Folder, MessageSummary } from '@shared/types'
+import { dragTokenCenter, folderIcon, returnTo, sinkInto, tokenCenterAt, type Point } from './listMotion'
 
 /*
   Mails per Ziehen in einen Ordner verschieben.
@@ -7,8 +8,8 @@ import type { Folder, MessageSummary } from '@shared/types'
   Was gezogen wird und worueber der Zeiger gerade steht, liegt in diesem
   kleinen Store und nicht im DataTransfer: der verraet waehrend des Ziehens nur
   seine Typen, nicht den Inhalt - ein Ordner muss aber schon beim
-  Darueberfahren wissen, ob er die Mails annimmt, und Zeilen, Ordner und der
-  Ziehgeist zeichnen sich danach. Der eigene Typ im DataTransfer sorgt nur
+  Darueberfahren wissen, ob er die Mails annimmt, und Zeilen, Ordner und das
+  Briefchen am Zeiger zeichnen sich danach. Der eigene Typ im DataTransfer sorgt nur
   dafuer, dass Dateien oder Text von aussen keinen Ordner aufleuchten lassen.
 */
 
@@ -29,10 +30,12 @@ export interface MailDrag {
   ids: Set<string>
   /** Konten, aus denen die Mails kommen; mehr als eins laesst sich nirgends ablegen */
   accountIds: Set<string>
-  /** Wo der Zeiger steht, fuer den mitlaufenden Ziehgeist */
+  /** Wo der Zeiger steht, fuer das mitlaufende Briefchen */
   x: number
   y: number
-  /** Ueber einem Ziel, das nichts annimmt: der Geist wird grau und nennt den Grund */
+  /** Wo das Briefchen beim Greifen erschien; ein Abbruch schickt es dorthin zurueck */
+  origin: Point
+  /** Ueber einem Ziel, das nichts annimmt: das Briefchen wird grau und nennt den Grund */
   refused: { note?: string; owner: object } | null
   /** Waehrend des Ziehens aufgeklappte Gruppen: Schluessel und Konto, zum Wiederzuklappen */
   sprung: { key: string; accountId: string; close: () => void }[]
@@ -51,7 +54,7 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
-/** Der ganze Zustand mit Zeigerposition; aendert sich bei jeder Mausbewegung. Nur fuer den Geist. */
+/** Der ganze Zustand mit Zeigerposition; aendert sich bei jeder Mausbewegung. Nur fuer das Briefchen. */
 export function useMailDragPointer(): MailDrag | null {
   return useSyncExternalStore(subscribe, () => state)
 }
@@ -65,7 +68,7 @@ export function useMailDrag(): DragSession | null {
   return useSyncExternalStore(subscribe, () => state?.session ?? null)
 }
 
-/** Ein leeres Bild statt des Abbilds der Zeile: der eigene Geist folgt dem Zeiger. */
+/** Ein leeres Bild statt des Abbilds der Zeile: das eigene Briefchen folgt dem Zeiger. */
 let blank: HTMLImageElement | null = null
 function blankImage(): HTMLImageElement {
   if (!blank) {
@@ -75,14 +78,11 @@ function blankImage(): HTMLImageElement {
   return blank
 }
 
-let frame = 0
+/** Die Lage kommt sofort aus dem Ereignis; den weichen Nachlauf macht das Briefchen selbst. */
 function track(event: DragEvent): void {
   if (!state || (event.clientX === 0 && event.clientY === 0)) return
-  const { clientX, clientY } = event
-  cancelAnimationFrame(frame)
-  frame = requestAnimationFrame(() => {
-    if (state) set({ ...state, x: clientX, y: clientY })
-  })
+  if (event.clientX === state.x && event.clientY === state.y) return
+  set({ ...state, x: event.clientX, y: event.clientY })
 }
 
 export function startMailDrag(event: React.DragEvent, items: MessageSummary[]): void {
@@ -100,6 +100,7 @@ export function startMailDrag(event: React.DragEvent, items: MessageSummary[]): 
     ...session,
     x: event.clientX,
     y: event.clientY,
+    origin: tokenCenterAt({ x: event.clientX, y: event.clientY }),
     refused: null,
     sprung: []
   })
@@ -107,17 +108,23 @@ export function startMailDrag(event: React.DragEvent, items: MessageSummary[]): 
 
 /**
  * Ende des Ziehens, abgelegt oder abgebrochen (Esc, Loslassen ausserhalb).
- * Unterwegs aufgeklappte Gruppen gehen wieder zu - ausser denen des Kontos,
- * in dessen Ordner abgelegt wurde.
+ * Abgelegt gleitet das Briefchen in den Ordner, abgebrochen fliegt es zur
+ * Zeile zurueck. Unterwegs aufgeklappte Gruppen gehen wieder zu - ausser
+ * denen des Kontos, in dessen Ordner abgelegt wurde.
  */
-export function endMailDrag(droppedInAccount?: string): void {
+export function endMailDrag(dropped?: { accountId: string; folder: string }): void {
   document.removeEventListener('dragover', track, true)
-  cancelAnimationFrame(frame)
   const current = state
   if (!current) return
+  const shown = dragTokenCenter()
   set(null)
+  if (shown) {
+    const target = dropped && folderIcon(dropped.accountId, dropped.folder)
+    if (target) sinkInto(shown, target, current.items.length)
+    else if (!dropped) returnTo(shown, current.origin, current.items.length)
+  }
   for (const group of current.sprung) {
-    if (group.accountId !== droppedInAccount) group.close()
+    if (group.accountId !== dropped?.accountId) group.close()
   }
 }
 
@@ -155,7 +162,7 @@ export function canDrop(items: MessageSummary[], accountId: string, folder: Fold
   return items.some((m) => m.folder !== folder.path)
 }
 
-/** Warum ein Ordner nichts annimmt, als kurzer Satz am Geist - nur wo es nicht offensichtlich ist. */
+/** Warum ein Ordner nichts annimmt, als kurzer Satz am Briefchen - nur wo es nicht offensichtlich ist. */
 export function refusalNote(drag: DragSession, accountId: string, accountLabel: (id: string) => string): string | undefined {
   if (drag.accountIds.size > 1) return 'Mails aus zwei Konten lassen sich nicht zusammen verschieben'
   const [own] = drag.accountIds

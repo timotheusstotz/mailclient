@@ -3,9 +3,91 @@
 Tim approved this on 2026-11-16 ("ja passt so mach"). That covers every artboard and the five choices listed
 under "Decisions Tim approved".
 
+The design canvas is private to Tim's account; the screens in this folder are its exports.
 Scope: the account rail, the folder column, the message list with search and sync status, the splitter
 between list and reading pane, and what the reading pane shows while several mails are selected. The reading
 view itself is approved separately (`../leseansicht/HANDOFF.md`). It is drawn here unchanged as context.
+
+## v4 (2026-11-23): small motions for deleting and dragging
+
+Tim asked for "eine kleine süße Animation" for both and approved the two frame strips as drawn ("Beide passen,
+bauen"). Pictures: `v4-flug-papierkorb.html` and `v4-flug-ziehen.html`, four frames each, with the values
+beside them. CSS: the v4 block at the end of `list.css`. Easing for everything is
+`cubic-bezier(0.2, 0.8, 0.2, 1)`.
+
+### The token
+
+`.tok-mail` is the same element in both animations:
+- 40 × 30 px, radius 8, `--surface` with a `--line-strong` border and `--shadow-pop`;
+- the mail icon (20 px) in `--ink`, slightly tilted (−8°);
+- for several mails, a count badge in `--accent` with `--on-accent` text, top right.
+
+Render it as a fixed element on top of the window, driven by transform and opacity only (WAAPI or CSS),
+never by layout.
+
+### Deleting: the mail flies into Papierkorb
+
+Triggered by the red row area (v3), Entf, the context menu and the toolbar's trash button.
+
+| Time | What happens |
+| :-- | :-- |
+| 0–90 ms | The token appears over the row's right edge (the red area, or the date column when deleted by key or menu), scale 1 → 1.1, −6° (`.is-lift`). |
+| 90–420 ms | It flies a quadratic arc to the icon of the Papierkorb folder **of the mail's own account** in the sidebar. The control point lies midway in x and 150 px above the higher end. 330 ms; it tilts to −14° and ends at scale 0.6 (`.is-fly`, `.is-land`). |
+| at the same time | The row fades in 120 ms and collapses in 200 ms (`.r.is-leaving` shows the halfway look). The rows below move up. |
+| 420–620 ms | The folder "gulps": its row takes `--danger-soft`, its icon scales to 1.25 and back, 200 ms (`.fi.is-gulp`). The token disappears into it. Then the existing undo toast. |
+
+- Several mails: one token with the count, starting at the first selected row.
+- No flight when the target folder is not visible (its account group is collapsed, the narrow window without
+  the folder column, or the folder is scrolled out of view): the rows only collapse.
+- Undo brings the rows back without a reverse flight.
+
+### Dragging: the token replaces the ghost card
+
+- **Grab:** the token pops out at the pointer, 140 ms, scale 0.75 → 1 (`.is-pop`). The lifted rows fade
+  as in v2.
+- **While dragging:** the token follows the pointer at +12 / +10 px with a light spring lag (about 120 ms).
+  - All v2 target rules stay: a valid folder lights up, other folders dim.
+  - Over an invalid target the token turns grey (`.is-no`) and the short dark note sits under it.
+- **Drop on a valid folder:** the token glides to the folder's icon and shrinks to 0.55 (180 ms, `.is-sink`).
+  Then the folder gulps in the accent (`.fi.is-gulp-ok`: `--accent-soft`, icon 1.25 and back, 200 ms).
+  Then the existing "… verschoben · Rückgängig" toast.
+- **Cancel** (Esc, or release over nothing): the token flies back to its row in 200 ms and the rows return to
+  full opacity.
+
+### Reduced motion
+
+- No flight, no pop, no glide, no gulp.
+- Deleting only fades the row out.
+- Dragging shows the token at the pointer without the spring lag and removes it on release.
+
+## v3 (2026-11-23): Papierkorb on row hover
+
+Tim's wish: "die Mail rutscht so ein bisschen nach links und da spawnt so ein kleiner Mülleimer". A first
+draft, which moved only the date column and faded the trash in, was rejected ("ne als slider so nicht").
+Tim then picked the version in which the whole row slides. He approved it ("ja passt mach"). Picture:
+`v3-dunkel-papierkorb.html`. CSS: the v3 block at the end of `list.css`.
+
+- Every row outside the Papierkorb folder gets `has-del` and a button `.r-del` as its last child.
+- **Changed after the port (Tim, 2026-11-23: "nur rausfahren, wenn ich rechts an die Seite hovere"):** the slide starts
+  only when the pointer is over the right 72 px of the row (an invisible zone, `.lv-r-delzone`), not on any row hover.
+- **Hover** (behind `@media (hover: hover)`):
+  - the row's content (every child except `.r-del`: dot, account square, sender, date, subject, marks,
+    snippet) moves `translateX(-72px)` as one block, 220 ms, `cubic-bezier(0.2, 0.8, 0.2, 1)`;
+  - the row clips it (`overflow: hidden`);
+  - in the same move, `.r-del` enters from `translateX(100%)`: 72 px wide, full row height, `--danger-soft`
+    fill, trash icon 18 px and the label "Papierkorb" (11 px, 600) in `--danger`.
+- **Pointer on the area:** solid `--danger` fill, icon and label in `--paper`, the icon wobbles once
+  (`mc-shake`, 460 ms). Pressed: `filter: brightness(0.92)`.
+- **Pointer leaves the row:** everything slides back in the same 220 ms. The row keeps its height, and nothing
+  else in the list moves.
+- **Click:** the existing "In den Papierkorb" action for that row (the whole conversation row, as the context
+  menu does), with the existing undo toast. The click must not select the row (`stopPropagation`).
+- **Keyboard:** the button is focusable, `aria-label="In den Papierkorb"`, `title` "In den Papierkorb (Entf)".
+  On focus it shows without the slide (`.r-del:focus-visible`). Entf on the selected row already does the same.
+- **No `.r-del`** in the Papierkorb folder (deleting for good stays in the context menu with its confirmation),
+  and none while several rows are selected (the selection pane has the actions). It is also absent during a
+  drag.
+- Reduced motion: no slide; the area is just there on hover.
 
 ## v2 (2026-11-19): account mark and drag and drop
 

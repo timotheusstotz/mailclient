@@ -1,0 +1,169 @@
+/* Mailclient: compose window, mail window and the window bar.
+   Builds on reader.css (tokens, .btn, .seg, .menu, .mi, .tip, .tile, .ic, .icw, mv-*) and list.css.
+   New tokens are marked NEW. */
+
+.mc[data-theme="dark"] {
+  --scrim: rgba(6, 8, 12, 0.58);          /* NEW, over the app while a window is expanded */
+  --win-ring: rgba(255, 255, 255, 0.06);  /* NEW, edge of a floating window on dark */
+  --caret: #82a6f0;                       /* NEW */
+  --quote-line: #3a424e;                  /* NEW, = --line-strong */
+}
+.mc[data-theme="light"] {
+  --scrim: rgba(20, 26, 38, 0.30);
+  --win-ring: rgba(16, 22, 34, 0.08);
+  --caret: #2f5bd0;
+  --quote-line: #cdd3db;
+}
+
+/* ---------- app frame with the bar ---------- */
+.mc.win.vf { flex-direction: column; }
+.mc .vf-main { flex: 1; min-height: 0; display: flex; position: relative; }
+.mc .scrim { position: absolute; inset: 0; background: var(--scrim); z-index: 20; }
+
+/* ---------- the window bar (Leiste) ---------- */
+.mc .dock {
+  height: 44px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 12px;
+  background: var(--surface-2); border-top: 1px solid var(--line); position: relative; z-index: 40;
+}
+.mc .dt {
+  height: 32px; min-width: 148px; max-width: 264px; flex: 0 1 auto; display: inline-flex; align-items: center; gap: 8px;
+  padding: 0 3px 0 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface);
+  color: var(--ink-2); font: 500 13px/1 var(--sans); position: relative; cursor: pointer;
+  transition: background-color var(--dur-1) linear, border-color var(--dur-1) linear, color var(--dur-1) linear, transform var(--dur-1) var(--ease);
+}
+.mc .dt > .ic { width: 14px; height: 14px; color: var(--ink-3); transition: color var(--dur-1) linear, transform var(--dur-2) var(--ease); }
+.mc .dt-lb { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.mc .dt-lb.is-empty { color: var(--ink-3); }
+.mc .dt-x {
+  width: 24px; height: 24px; flex: none; border: 0; border-radius: 6px; background: transparent; color: var(--ink-3);
+  display: grid; place-items: center; cursor: pointer;
+  transition: background-color var(--dur-1) linear, color var(--dur-1) linear;
+}
+.mc .dt-x .ic { width: 13px; height: 13px; stroke-width: 2; transition: transform var(--dur-2) var(--ease); }
+/* hover (pointer devices) and the static twin */
+@media (hover: hover) {
+  .mc .dt:hover { background: var(--surface-hover); border-color: var(--line-hover); color: var(--ink); }
+  .mc .dt:hover > .ic { color: var(--ink); transform: translateY(-1px); }
+  .mc .dt:hover .dt-x { color: var(--ink-2); }
+  .mc .dt-x:hover { background: var(--surface-pressed); color: var(--ink); }
+  .mc .dt-x:hover .ic { transform: rotate(90deg); }
+}
+.mc .dt.is-hover { background: var(--surface-hover); border-color: var(--line-hover); color: var(--ink); }
+.mc .dt.is-hover > .ic { color: var(--ink); transform: translateY(-1px); }
+.mc .dt.is-hover .dt-x { color: var(--ink-2); }
+.mc .dt-x.is-hover { background: var(--surface-pressed); color: var(--ink); }
+.mc .dt-x.is-hover .ic { transform: rotate(90deg); }
+.mc .dt:active, .mc .dt.is-active { transform: scale(0.98); background: var(--surface-pressed); }
+.mc .dt:focus-visible, .mc .dt.is-focus, .mc .dt-x:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* the expanded window's tab */
+.mc .dt.is-open { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); font-weight: 600; }
+.mc .dt.is-open > .ic, .mc .dt.is-open .dt-x { color: var(--accent-ink); }
+.mc .dt.is-open::after { content: ""; position: absolute; left: 10px; right: 10px; top: -7px; height: 2px; border-radius: 2px; background: var(--accent); }
+/* tooltip above a tab */
+.mc .tip.tip--up { top: auto; bottom: calc(100% + 8px); left: 0; transform: none; white-space: normal; max-width: 420px; line-height: 1.35; align-items: flex-start; flex-direction: column; gap: 4px; padding: 8px 10px; }
+.mc .tip--up small { font: 500 11.5px/1.2 var(--sans); opacity: 0.72; }
+
+/* ---------- the window frame: compose and mail windows share it ---------- */
+.mc .cw {
+  position: absolute; left: 50%; top: 40px; bottom: 40px; width: 920px; transform: translateX(-50%); z-index: 30;
+  background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-pop), 0 0 0 1px var(--win-ring);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.mc .cw-head { height: 56px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 20px; border-bottom: 1px solid var(--line); }
+.mc .cw-kind { width: 28px; height: 28px; border-radius: 8px; background: var(--surface-3); color: var(--ink-2); display: grid; place-items: center; flex: none; }
+.mc .cw-kind .ic { width: 15px; height: 15px; }
+.mc .cw-title { flex: 1; min-width: 0; font: 650 15px/1.2 var(--sans); letter-spacing: -0.008em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
+.mc .cw-title span { color: var(--ink-3); font-weight: 500; }
+.mc .cw-state { display: inline-flex; align-items: center; gap: 6px; font: 400 12.5px/1 var(--sans); color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; margin-right: 6px; }
+.mc .cw-state .ic { width: 14px; height: 14px; stroke-width: 2; }
+.mc .cw-head .btn--icon { border-color: transparent; background: transparent; }
+.mc .cw-head .btn--icon .ic { color: var(--ink-2); }
+.mc .cw-sep { width: 1px; height: 20px; background: var(--line); flex: none; }
+
+/* close turns a quarter (both windows) */
+@media (hover: hover) { .mc .mv-quarter:hover .ic { transform: rotate(90deg); } }
+.mc .mv-quarter.is-hover .ic { transform: rotate(90deg); }
+
+/* fields */
+.mc .cw-fields { flex: none; padding: 0 20px; }
+.mc .cw-line { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; align-items: center; column-gap: 8px; min-height: 48px; border-bottom: 1px solid var(--line); }
+.mc .cw-line > label, .mc .cw-line > .k { font: 400 13px/1 var(--sans); color: var(--ink-3); align-self: start; padding-top: 17px; }
+.mc .cw-pick {
+  justify-self: start; max-width: 100%; height: 32px; display: inline-flex; align-items: center; gap: 8px; padding: 0 8px 0 9px; margin-left: -9px;
+  border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--ink); font: 600 14px/1 var(--sans); cursor: pointer;
+  transition: background-color var(--dur-1) linear, border-color var(--dur-1) linear;
+}
+.mc .cw-pick .addr { font-weight: 400; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc .cw-pick .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--a); flex: none; }
+.mc .cw-pick .chev { width: 14px; height: 14px; stroke-width: 2; color: var(--ink-3); transition: transform var(--dur-2) var(--ease); }
+@media (hover: hover) { .mc .cw-pick:hover { background: var(--surface-hover); border-color: var(--line-hover); } .mc .cw-pick:hover .chev { transform: translateY(1px); } }
+.mc .cw-pick.is-hover { background: var(--surface-hover); border-color: var(--line-hover); }
+.mc .cw-recips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 9px 0; min-width: 0; }
+.mc .rc {
+  height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 3px 0 10px; border-radius: 999px;
+  background: var(--surface-3); border: 1px solid var(--line); font: 500 13px/1 var(--sans); color: var(--ink); max-width: 100%;
+}
+.mc .rc .addr { color: var(--ink-3); font-weight: 400; }
+.mc .rc button { width: 22px; height: 22px; border: 0; border-radius: 50%; background: transparent; color: var(--ink-3); display: grid; place-items: center; }
+.mc .rc button .ic { width: 12px; height: 12px; stroke-width: 2; }
+.mc .cw-type { flex: 1; min-width: 120px; height: 28px; border: 0; background: transparent; color: var(--ink); font: 400 14px/28px var(--sans); padding: 0; outline: none; }
+.mc .cw-subject {
+  display: block; width: 100%; border: 0; background: transparent; resize: none; padding: 14px 0 13px; margin: 0;
+  font: 600 15px/1.45 var(--sans); letter-spacing: -0.005em; color: var(--ink); outline: none; field-sizing: content; max-height: calc(1.45em * 2 + 27px); overflow: hidden;
+}
+
+/* editor */
+.mc .cw-editor { flex: 1; min-height: 0; overflow: hidden; padding: 18px 24px 16px 116px; font: 400 15px/1.6 var(--sans); color: var(--ink); position: relative; }
+.mc .cw-editor p { margin: 0 0 12px; max-width: 72ch; }
+.mc .caret { display: inline-block; width: 2px; height: 1.15em; background: var(--caret); vertical-align: -0.2em; margin-left: 1px; border-radius: 1px; }
+.mc .cw-quote { margin-top: 18px; padding-left: 14px; border-left: 2px solid var(--quote-line); color: var(--ink-3); max-width: 72ch; }
+.mc .cw-quote .qh { display: block; margin-bottom: 8px; font-size: 13px; color: var(--ink-3); }
+.mc .cw-quote p { margin: 0 0 10px; }
+.mc .cw-quote a { color: var(--accent-ink); }
+.mc .cw-fade { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; background: linear-gradient(to bottom, transparent, var(--surface)); pointer-events: none; }
+
+/* attachments */
+.mc .cw-att { flex: none; border-top: 1px solid var(--line); padding: 10px 20px 14px; display: flex; flex-direction: column; gap: 8px; }
+.mc .cw-att .att-head { height: 24px; }
+.mc .cw-att .hint { margin-left: auto; font: 400 12px/1 var(--sans); color: var(--ink-3); }
+.mc .cw-att .att-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.mc .cw-att .tile .btn--icon .ic { color: var(--ink-3); }
+@media (hover: hover) { .mc .cw-att .tile .btn--icon:hover { background: var(--danger-soft); } .mc .cw-att .tile .btn--icon:hover .ic { color: var(--danger); } }
+
+/* foot */
+.mc .cw-foot { height: 64px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 16px 0 20px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.mc .cw-foot .grow { flex: 1; }
+.mc .cw-foot .vsep { width: 1px; height: 24px; background: var(--line-strong); margin: 0 4px; }
+.mc .btn--plain { border-color: transparent; background: transparent; color: var(--ink-2); }
+.mc .btn--plain .ic { color: var(--ink-3); }
+@media (hover: hover) {
+  .mc .btn--plain.btn--danger:hover { background: var(--danger-soft); border-color: transparent; color: var(--danger); }
+  .mc .btn--plain.btn--danger:hover .ic { color: var(--danger); }
+}
+.mc .btn--plain.btn--danger.is-hover { background: var(--danger-soft); border-color: transparent; color: var(--danger); }
+.mc .btn--plain.btn--danger.is-hover .ic { color: var(--danger); }
+.mc .btn .kb { font: 500 12px/1 var(--sans); opacity: 0.7; margin-left: 2px; }
+
+/* ---------- mail window (read-only, same frame) ---------- */
+.mc .cw-head .btn--primary, .mc .cw-head .btn.has-lbl { flex: none; }
+.mc .cw-body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px; background: var(--paper); overflow: hidden; }
+.mc .cw-body .env { box-shadow: none; }
+
+/* ---------- drafts in the list and the reader ---------- */
+.mc .r-pre { color: var(--ink-3); font-weight: 400; margin-right: 4px; }
+.mc .r .is-none { color: var(--ink-3); font-weight: 400; font-style: normal; }
+.mc .note-draft { border-top: 1px solid var(--line); background: var(--surface-2); min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 24px; font-size: 13px; color: var(--ink-2); }
+.mc .note-draft .ic { color: var(--ink-3); width: 15px; height: 15px; }
+.mc .note-draft b { color: var(--ink); font-weight: 600; }
+.mc .tip.tip--down-left { left: 0; transform: none; }
+
+/* ---------- failed save ---------- */
+.mc .cw-state.is-err { color: var(--danger); font-weight: 600; }
+.mc .cw-err { flex: none; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 12px 8px 20px; background: var(--danger-soft); border-bottom: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); color: var(--ink); font-size: 13.5px; line-height: 1.4; }
+.mc .cw-err > .mark { width: 28px; height: 28px; border-radius: 8px; background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); display: grid; place-items: center; flex: none; }
+.mc .cw-err > .mark .ic { width: 15px; height: 15px; stroke-width: 2; }
+.mc .cw-err .txt { flex: 1; min-width: 0; }
+.mc .cw-err .txt b { font-weight: 650; }
+.mc .cw-err .txt span { color: var(--ink-2); }
+.mc .btn.is-armed { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
+.mc .btn.is-armed .ic { color: var(--danger); }

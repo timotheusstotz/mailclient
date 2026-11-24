@@ -10,7 +10,9 @@ import type {
   AccountStatus,
   ConnectionTestResult,
   Contact,
+  DraftRef,
   Folder,
+  LoadedDraft,
   MailRule,
   MessageBody,
   MessageSummary,
@@ -27,7 +29,8 @@ import type {
 import { isRuleUsable, matchesRule } from '@shared/rules'
 import { isEmptySearch, matchesSearch, parseSearch, type ParsedSearch } from '@shared/search'
 import { buildThreadIndex, linkedIds, normalizeMessageId } from '@shared/threads'
-import { AccountConnection, describeError, type AttachmentData } from './imap'
+import { bareMessageId, draftFromParsed } from './drafts'
+import { AccountConnection, describeError, failureKind, type AttachmentData } from './imap'
 import { buildRawMessage, describeSmtpError, sendRaw, verifySmtp } from './smtp'
 import { Store, type SnoozeEntry } from './store'
 import { ImapFlow, type SearchObject } from 'imapflow'
@@ -1092,6 +1095,76 @@ export class MailService {
     await this.persistOutbox()
     this.armOutboxTimer()
     return entry.draft ?? null
+  }
+
+  // ---------------------------------------------------------- Entwuerfe
+
+  private draftConnection(accountId: AccountId): AccountConnection {
+    const connection = this.connections.get(accountId)
+    if (!connection) throw new Error('Das Konto ist nicht verbunden.')
+    return connection
+  }
+
+  /** UIDs eines gespeicherten Entwurfs; leer, wenn er nicht mehr da ist. */
+  private async draftUids(ref: DraftRef): Promise<number[]> {
+    if (ref.uid) return [ref.uid]
+    return this.draftConnection(ref.accountId).findByMessageIds(ref.folder, [bareMessageId(ref.messageId)])
+  }
+
+  /**
+   * Speichert eine neue Fassung im Entwuerfe-Ordner des Kontos. Erst wenn sie
+   * dort liegt, verschwindet die vorige - auch dann, wenn sie in einem
+   * anderen Konto lag, weil "Von" gewechselt wurde.
+   */
+  async saveDraft(msg: OutgoingMessage, previous?: DraftRef): Promise<DraftRef> {
+    const account = this.store.getAccount(msg.accountId)
+    if (!account) throw new Error('other')
+    const connection = this.connections.get(account.id)
+    if (!connection) throw new Error('offline')
+    let placed: { folder: string; uid?: number }
+    let messageId: string
+    try {
+      const built = await buildRawMessage(account, msg)
+      messageId = built.messageId
+      placed = await connection.appendDraft(built.raw)
+    } catch (err) {
+      // Nur das Wort fuer den Grund geht zurueck (DraftFailure); den Satz baut die Oberflaeche.
+      console.warn(`Entwurf nicht gespeichert (${account.label}): ${describeError(err)}`)
+      throw new Error(failureKind(err))
+    }
+    const ref: DraftRef = { accountId: account.id, folder: placed.folder, uid: placed.uid, messageId }
+    // Bleibt die alte Fassung liegen, ist das ein Duplikat, kein Verlust.
+    if (previous) await this.dropDraft(previous).catch(() => {})
+    return ref
+  }
+
+  async openDraft(accountId: AccountId, folder: string, uid: number): Promise<LoadedDraft> {
+    const connection = this.connections.get(accountId)
+    if (!connection) throw new Error('offline')
+    const parsed = await connection.getParsed(folder, uid).catch((err) => {
+      throw new Error(failureKind(err))
+    })
+    if (!parsed) throw new Error('gone')
+    return {
+      ref: { accountId, folder, uid, messageId: parsed.messageId ?? '' },
+      message: draftFromParsed(accountId, parsed)
+    }
+  }
+
+  /** Verwerfen: der Entwurf geht in den Papierkorb, von dort kommt er zurueck. */
+  async discardDraft(ref: DraftRef): Promise<void> {
+    try {
+      const uids = await this.draftUids(ref)
+      if (uids.length) await this.draftConnection(ref.accountId).remove(ref.folder, uids)
+    } catch (err) {
+      throw new Error(failureKind(err))
+    }
+  }
+
+  /** Nach dem Versand: der Entwurf hat ausgedient und wird endgueltig entfernt. */
+  async dropDraft(ref: DraftRef): Promise<void> {
+    const uids = await this.draftUids(ref)
+    if (uids.length) await this.draftConnection(ref.accountId).expunge(ref.folder, uids)
   }
 
   /** Sendet einen wartenden oder abgelehnten Eintrag sofort (erneut). */

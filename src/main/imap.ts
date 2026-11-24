@@ -5,6 +5,7 @@ import type {
   Account,
   Address,
   Attachment,
+  DraftFailure,
   Folder,
   FolderRole,
   MailRule,
@@ -13,7 +14,7 @@ import type {
   RuleCondition,
   SyncPhase
 } from '@shared/types'
-import { messageKey } from '@shared/types'
+import { DRAFT_FAILURES, messageKey } from '@shared/types'
 import { activeConditions } from '@shared/rules'
 import type { Store } from './store'
 
@@ -425,8 +426,11 @@ export class AccountConnection {
       const known = new Set(this.store.knownUids(accountId, folderPath))
       const windowMinUid = Math.min(...serverFlags.keys())
 
-      // 1. Verschwundene Nachrichten innerhalb des Fensters entfernen
-      const vanished = [...known].filter((uid) => uid >= windowMinUid && !serverFlags.has(uid))
+      // 1. Verschwundene Nachrichten innerhalb des Fensters entfernen. Reicht das
+      // Fenster bis zur ersten Nachricht, ist alles Unbekannte weg - auch UIDs
+      // unter der kleinsten, die der Server noch hat.
+      const wholeFolder = start === 1
+      const vanished = [...known].filter((uid) => (wholeFolder || uid >= windowMinUid) && !serverFlags.has(uid))
       if (vanished.length) this.store.removeMessages(accountId, folderPath, vanished)
 
       // 2. Flags bestehender Nachrichten aktualisieren
@@ -549,16 +553,22 @@ export class AccountConnection {
 
   /** Alle Anhaenge einer Mail aus einem einzigen Abruf, fuer "Alle speichern". */
   async getAttachments(folderPath: string, uid: number): Promise<AttachmentData[] | null> {
-    return this.read(folderPath, async (client) => {
-      const dl = await client.download(String(uid), undefined, { uid: true })
-      if (!dl?.content) return null
-      const parsed = await simpleParser(dl.content)
-      return parsed.attachments.map((att, index) => ({
+    const parsed = await this.getParsed(folderPath, uid)
+    return (
+      parsed?.attachments.map((att, index) => ({
         partId: String(index),
         filename: att.filename || `anhang-${index + 1}`,
         contentType: att.contentType || 'application/octet-stream',
         data: att.content as Buffer
-      }))
+      })) ?? null
+    )
+  }
+
+  /** Die ganze Nachricht frisch vom Server, ungecacht - fuer Anhaenge und Entwuerfe. */
+  async getParsed(folderPath: string, uid: number): Promise<ParsedMail | null> {
+    return this.read(folderPath, async (client) => {
+      const dl = await client.download(String(uid), undefined, { uid: true })
+      return dl?.content ? simpleParser(dl.content) : null
     })
   }
 
@@ -701,6 +711,11 @@ export class AccountConnection {
       await this.move(folderPath, uids, trash.path)
       return
     }
+    await this.expunge(folderPath, uids)
+  }
+
+  /** Entfernt Mails endgueltig, ohne Umweg ueber den Papierkorb. */
+  async expunge(folderPath: string, uids: number[]): Promise<void> {
     await this.enqueue(() =>
       this.withMailbox(folderPath, async (client) => {
         await client.messageDelete(uids.join(','), { uid: true })
@@ -721,6 +736,21 @@ export class AccountConnection {
       await client.append(sent.path, raw, ['\\Seen'], new Date())
     })
     await this.refresh(sent.path)
+  }
+
+  /**
+   * Legt eine Fassung eines Entwurfs im Entwuerfe-Ordner ab, den es notfalls
+   * erst anlegt. Die UID kommt aus APPENDUID; nennt der Server keine, bleibt
+   * nur die Message-ID zum Wiederfinden.
+   */
+  async appendDraft(raw: Buffer): Promise<{ folder: string; uid?: number }> {
+    const folder = this.folderByRole('drafts')?.path ?? (await this.ensureFolder('Drafts'))
+    const placed = await this.enqueue(async () => {
+      const client = await this.getClient()
+      return client.append(folder, raw, ['\\Draft', '\\Seen'], new Date())
+    })
+    void this.refresh(folder).catch(() => {})
+    return { folder, uid: placed ? placed.uid : undefined }
   }
 
   /** Serverseitige Suche - findet auch, was lokal nicht im Cache liegt. */
@@ -877,7 +907,8 @@ function toSummary(accountId: string, folder: string, msg: FetchedMessage): Mess
     messageId: env.messageId,
     inReplyTo: env.inReplyTo,
     references: parseReferences(msg.headers),
-    subject: env.subject?.trim() || '(kein Betreff)',
+    // Leer bleibt leer: was ohne Betreff dasteht, entscheidet die Oberflaeche (ein Entwurf zeigt "Kein Betreff").
+    subject: env.subject?.trim() ?? '',
     from: mapAddresses(env.from),
     to: mapAddresses(env.to),
     cc: mapAddresses(env.cc),
@@ -1170,6 +1201,29 @@ export function describeError(err: unknown): string {
     return e.responseStatus ? `${serverText} (${e.responseStatus})` : serverText
   }
   return e.message ?? String(err)
+}
+
+/**
+ * Grob, warum eine Anfrage an den Server scheiterte - fuer Saetze wie
+ * "Google ist offline." statt eines Fehlercodes. Gelesen werden dieselben
+ * Felder wie in describeError.
+ */
+export function failureKind(err: unknown): DraftFailure {
+  const e = (err ?? {}) as { message?: string; code?: string; serverResponseCode?: string; authenticationFailed?: boolean }
+  if (e.authenticationFailed || e.serverResponseCode === 'AUTHENTICATIONFAILED') return 'auth'
+  const code = e.code ?? ''
+  const message = e.message ?? ''
+  // Schon eingeordnet (etwa "offline" ohne Verbindung): so lassen.
+  if ((DRAFT_FAILURES as readonly string[]).includes(message)) return message as DraftFailure
+  if (code === 'ETIMEDOUT' || /timeout|timed out/i.test(message)) return 'timeout'
+  if (
+    ['ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'EPIPE', 'EHOSTUNREACH', 'ENETUNREACH', 'EAI_AGAIN', 'NoConnection'].includes(code) ||
+    code.startsWith('ClosedAfterConnect') ||
+    /getaddrinfo|socket|connection|unexpected close|not connected|nicht verbunden/i.test(message)
+  ) {
+    return 'offline'
+  }
+  return 'other'
 }
 
 export const APP_PASSWORD_HINT =

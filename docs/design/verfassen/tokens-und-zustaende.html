@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verfassen – Tokens und Zustände</title>
+<link rel="stylesheet" href="../leseansicht/reader.css">
+<link rel="stylesheet" href="../liste/list.css">
+<link rel="stylesheet" href="verfassen.css">
+<style>body{margin:0;background:#0b0d10}</style>
+</head>
+<body>
+<div class="mc" data-theme="dark" style="width: 1440px; height: 1240px; background: var(--paper); padding: 40px 48px; display: flex; flex-direction: column; gap: 28px; overflow: hidden;">
+  <div style="display: flex; align-items: baseline; gap: 16px;">
+    <h1 style="margin: 0; font: 650 24px/1.2 var(--sans); letter-spacing: -0.018em;">Tokens und Zustände</h1>
+    <span style="font-size: 13px; color: var(--ink-3);">Fenster, Leiste und Verfassen · dunkel · alle übrigen Werte aus reader.css und list.css</span>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px;">
+    <section style="background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px;">
+      <h2 style="margin: 0; font: 650 15px/1.3 var(--sans);">Neue Farben</h2>
+      <div style="display: grid; grid-template-columns: 150px repeat(2, minmax(0, 1fr)); gap: 10px 16px; align-items: center; font-size: 13px;">
+        <span style="color: var(--ink-3);">Token</span><span style="color: var(--ink-3);">Dunkel</span><span style="color: var(--ink-3);">Hell (Vorschlag)</span>
+        <b style="font-weight: 600;">--scrim</b>
+        <span style="display: flex; gap: 8px; align-items: center;"><i style="width: 28px; height: 20px; border-radius: 5px; background: linear-gradient(rgba(6,8,12,0.58), rgba(6,8,12,0.58)), #82a6f0; border: 1px solid var(--line);"></i>rgba(6, 8, 12, 0.58)</span>
+        <span style="display: flex; gap: 8px; align-items: center;"><i style="width: 28px; height: 20px; border-radius: 5px; background: linear-gradient(rgba(20,26,38,0.30), rgba(20,26,38,0.30)), #ffffff; border: 1px solid var(--line);"></i>rgba(20, 26, 38, 0.30)</span>
+        <b style="font-weight: 600;">--win-ring</b>
+        <span>rgba(255, 255, 255, 0.06)</span><span>rgba(16, 22, 34, 0.08)</span>
+        <b style="font-weight: 600;">--caret</b>
+        <span style="display: flex; gap: 8px; align-items: center;"><i style="width: 28px; height: 20px; border-radius: 5px; background: #82a6f0;"></i>#82a6f0</span>
+        <span style="display: flex; gap: 8px; align-items: center;"><i style="width: 28px; height: 20px; border-radius: 5px; background: #2f5bd0;"></i>#2f5bd0</span>
+        <b style="font-weight: 600;">--quote-line</b>
+        <span style="display: flex; gap: 8px; align-items: center;"><i style="width: 28px; height: 20px; border-radius: 5px; background: #3a424e;"></i>#3a424e</span>
+        <span style="display: flex; gap: 8px; align-items: center;"><i style="width: 28px; height: 20px; border-radius: 5px; background: #cdd3db;"></i>#cdd3db</span>
+      </div>
+      <p style="margin: 0; font-size: 12.5px; color: var(--ink-3); line-height: 1.5;">Maße: Leiste 44 px · Tab 32 px hoch, 148–264 px breit, Radius 8 · Fenster 920 px, 40 px Abstand oben und zur Leiste, Radius 12 · Kopf 56 px · Fuß 64 px · Feldzeile 48 px, Beschriftung 76 px</p>
+    </section>
+
+    <section style="background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px;">
+      <h2 style="margin: 0; font: 650 15px/1.3 var(--sans);">Gespeichert-Zeile im Fensterkopf</h2>
+      <div style="display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 14px 16px; align-items: center; font-size: 13px;">
+        <span style="color: var(--ink-3);">Noch nie gespeichert</span><span style="color: var(--ink-3);">(keine Zeile)</span>
+        <span style="color: var(--ink-3);">Gespeichert</span>
+        <span><span class="cw-state"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Entwurf gespeichert · 14:02</span></span>
+        <span style="color: var(--ink-3);">Speichert gerade</span>
+        <span><span class="cw-state"><span class="rl-stat rl-stat--busy" style="position: static; width: 12px; height: 12px;" aria-hidden="true"></span>Wird gespeichert …</span></span>
+        <span style="color: var(--ink-3);">Fehlgeschlagen</span>
+        <span><span class="cw-state is-err"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v5M12 16.5v.01M10.3 3.9L2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>Nicht gespeichert</span></span>
+      </div>
+      <p style="margin: 0; font-size: 12.5px; color: var(--ink-3); line-height: 1.5;">Kein Autosave: Die Zeile ändert sich nur nach Speichern, Minimieren, Schließen oder Fensterwechsel. „Wird gespeichert …" erst nach 300 ms zeigen.</p>
+    </section>
+  </div>
+
+  <section style="background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px;">
+    <h2 style="margin: 0; font: 650 15px/1.3 var(--sans);">Tab in der Leiste</h2>
+    <div class="dock" style="border: 1px solid var(--line); border-radius: 10px; height: 88px; gap: 28px; padding: 0 20px; align-items: flex-end; padding-bottom: 14px;">
+      <div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; color: var(--ink-3);">Ruhe</span>
+        <div class="dt" style="width: 200px;"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"></path></svg><span class="dt-lb">Neue Nachricht</span><button class="dt-x" aria-label="Schließen, Entwurf bleibt"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div></div>
+      <div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; color: var(--ink-3);">Hover</span>
+        <div class="dt is-hover" style="width: 200px;"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"></path></svg><span class="dt-lb">Neue Nachricht</span><button class="dt-x" aria-label="Schließen, Entwurf bleibt"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div></div>
+      <div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; color: var(--ink-3);">Zeiger auf dem x</span>
+        <div class="dt is-hover" style="width: 200px;"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"></path></svg><span class="dt-lb">Neue Nachricht</span><button class="dt-x is-hover" aria-label="Schließen, Entwurf bleibt"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div></div>
+      <div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; color: var(--ink-3);">Gedrückt</span>
+        <div class="dt is-active" style="width: 200px;"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7l9 6 9-6"></path></svg><span class="dt-lb">Die Linke Wiesbaden Rundmail</span><button class="dt-x" aria-label="Schließen"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div></div>
+      <div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; color: var(--ink-3);">Fokus</span>
+        <div class="dt is-focus" style="width: 200px;"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7l9 6 9-6"></path></svg><span class="dt-lb">Die Linke Wiesbaden Rundmail</span><button class="dt-x" aria-label="Schließen"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div></div>
+      <div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; color: var(--ink-3);">Ausgeklappt</span>
+        <div class="dt is-open" style="width: 200px;"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"></path></svg><span class="dt-lb">Antrag auf Rückerstattung zu viel gezahlter Prime-Beiträge</span><button class="dt-x" aria-label="Schließen, Entwurf bleibt"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div></div>
+    </div>
+  </section>
+
+  <section style="background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px;">
+    <h2 style="margin: 0; font: 650 15px/1.3 var(--sans);">Knöpfe im Fenster: Ruhe · Hover · Gedrückt</h2>
+    <div style="display: grid; grid-template-columns: 190px repeat(3, minmax(0, 1fr)); gap: 14px 16px; align-items: center; font-size: 13px;">
+      <span style="color: var(--ink-3);">Senden</span>
+      <span><button class="btn btn--primary mv-right"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"></path></svg></span>Senden</button></span>
+      <span><button class="btn btn--primary mv-right is-hover"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"></path></svg></span>Senden</button></span>
+      <span><button class="btn btn--primary is-active"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"></path></svg></span>Senden</button></span>
+      <span style="color: var(--ink-3);">Als Entwurf speichern</span>
+      <span><button class="btn btn--outline mv-down"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"></path></svg></span>Als Entwurf speichern</button></span>
+      <span><button class="btn btn--outline mv-down is-hover"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"></path></svg></span>Als Entwurf speichern</button></span>
+      <span><button class="btn btn--outline is-active"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"></path></svg></span>Als Entwurf speichern</button></span>
+      <span style="color: var(--ink-3);">Verwerfen</span>
+      <span><button class="btn btn--plain btn--danger"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg></span>Verwerfen</button></span>
+      <span><button class="btn btn--plain btn--danger mv-shake is-hover"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg></span>Verwerfen</button></span>
+      <span><button class="btn btn--plain btn--danger is-hover is-active"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"></path></svg></span>Verwerfen</button></span>
+      <span style="color: var(--ink-3);">Minimieren · Schließen</span>
+      <span style="display: flex; gap: 6px;"><button class="btn btn--icon btn--ghost" aria-label="Minimieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10M7.5 9.5L12 14l4.5-4.5M5 19h14"></path></svg></span></button><button class="btn btn--icon btn--ghost" aria-label="Schließen"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></span></button></span>
+      <span style="display: flex; gap: 6px;"><button class="btn btn--icon btn--ghost mv-down is-hover" aria-label="Minimieren"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10M7.5 9.5L12 14l4.5-4.5M5 19h14"></path></svg></span></button><button class="btn btn--icon btn--ghost mv-quarter is-hover" aria-label="Schließen"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></span></button></span>
+      <span style="display: flex; gap: 6px; align-items: center;"><button class="btn btn--icon is-armed" aria-label="Ohne Speichern schließen"><span class="icw"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></span></button><span style="font-size: 12px; color: var(--ink-3);">nach fehlgeschlagenem Speichern: zweiter Klick schließt</span></span>
+    </div>
+  </section>
+
+  <section style="background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; flex: 1; min-height: 0;">
+    <h2 style="margin: 0; font: 650 15px/1.3 var(--sans);">Bewegung: Minimieren in die Leiste und zurück</h2>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px;">
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="position: relative; height: 150px; border-radius: 8px; background: var(--paper); border: 1px solid var(--line); overflow: hidden;">
+          <div style="position: absolute; inset: 0 0 18px 0; background: var(--scrim);"></div>
+          <div style="position: absolute; left: 22%; right: 22%; top: 12px; bottom: 26px; border-radius: 6px; background: var(--surface-3); box-shadow: var(--shadow-pop);"></div>
+          <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 18px; background: var(--surface-2); border-top: 1px solid var(--line);"></div>
+          <div style="position: absolute; left: 8px; bottom: 4px; width: 46px; height: 10px; border-radius: 3px; background: var(--accent-soft); border: 1px solid var(--accent-line);"></div>
+        </div>
+        <span style="font-size: 12.5px; color: var(--ink-2);"><b style="color: var(--ink);">0 ms</b> · Klick daneben oder Minimieren</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="position: relative; height: 150px; border-radius: 8px; background: var(--paper); border: 1px solid var(--line); overflow: hidden;">
+          <div style="position: absolute; inset: 0 0 18px 0; background: rgba(6, 8, 12, 0.25);"></div>
+          <div style="position: absolute; left: 12%; width: 30%; top: 70px; height: 50px; border-radius: 5px; background: var(--surface-3); box-shadow: var(--shadow-pop); opacity: 0.85;"></div>
+          <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 18px; background: var(--surface-2); border-top: 1px solid var(--line);"></div>
+          <div style="position: absolute; left: 8px; bottom: 4px; width: 46px; height: 10px; border-radius: 3px; background: var(--accent-soft); border: 1px solid var(--accent-line);"></div>
+        </div>
+        <span style="font-size: 12.5px; color: var(--ink-2);"><b style="color: var(--ink);">120 ms</b> · das Fenster schrumpft auf seinen Tab zu (FLIP, transform), die Abdunklung geht</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="position: relative; height: 150px; border-radius: 8px; background: var(--paper); border: 1px solid var(--line); overflow: hidden;">
+          <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 18px; background: var(--surface-2); border-top: 1px solid var(--line);"></div>
+          <div style="position: absolute; left: 8px; bottom: 4px; width: 46px; height: 10px; border-radius: 3px; background: var(--surface); border: 1px solid var(--line-strong);"></div>
+        </div>
+        <span style="font-size: 12.5px; color: var(--ink-2);"><b style="color: var(--ink);">240 ms</b> · im Tab angekommen, der Tab verliert die Markierung</span>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 8px 16px; font-size: 13px; color: var(--ink-2);">
+      <b style="color: var(--ink); font-weight: 600;">Minimieren</b><span>240 ms, Kurve cubic-bezier(0.2, 0.8, 0.2, 1); Deckkraft auf 0 in den letzten 80 ms; Abdunklung 200 ms</span>
+      <b style="color: var(--ink); font-weight: 600;">Zurückholen (Klick auf den Tab)</b><span>umgekehrt aus dem Tab, 280 ms; das Fenster bleibt gemountet, nichts lädt neu</span>
+      <b style="color: var(--ink); font-weight: 600;">Fensterwechsel</b><span>das offene schrumpft in seinen Tab, das andere wächst gleichzeitig aus seinem</span>
+      <b style="color: var(--ink); font-weight: 600;">Schließen (X, Esc, x am Tab)</b><span>blendet aus und sinkt 8 px, 160 ms; die Tabs rechts rücken in 200 ms nach</span>
+      <b style="color: var(--ink); font-weight: 600;">Leiste erscheint oder geht</b><span>gleitet von unten, 200 ms, die Spalten werden im selben Frame kürzer</span>
+      <b style="color: var(--ink); font-weight: 600;">Weniger Bewegung</b><span>nur Überblenden, 120 ms, nichts bewegt oder skaliert sich</span>
+    </div>
+  </section>
+</div>
+</body>
+</html>

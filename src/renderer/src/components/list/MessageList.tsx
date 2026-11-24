@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import type { Account, Folder, MessageSummary, Settings, ViewRef } from '@shared/types'
 import type { ThreadRow } from '@shared/threads'
 import { parseSearch } from '@shared/search'
-import { folderLabel, listPartner } from '../../lib/format'
+import { displayName, folderLabel, listPartner } from '../../lib/format'
 import type { SyncFeedback } from '../../state'
+import { useLingeringRows } from '../../lib/listMotion'
 import { IconRefresh } from '../icons'
 import { EmptyList } from './EmptyList'
 import { MessageRow } from './MessageRow'
@@ -37,9 +38,11 @@ interface Props {
   subAction?: ReactNode
   onSearchChange: (value: string) => void
   onSelect: (message: MessageSummary, event: React.MouseEvent) => void
+  onOpen: (message: MessageSummary) => void
   onTogglePick: (message: MessageSummary) => void
   onContextMenu: (event: React.MouseEvent, message: MessageSummary) => void
   onToggleRead: (message: MessageSummary) => void
+  onTrash: (message: MessageSummary) => void
   onDragStart: (event: React.DragEvent, message: MessageSummary) => void
   onRefresh: () => void
   onCompose: () => void
@@ -52,6 +55,8 @@ interface Props {
 /** Die Nachrichtenliste: Suche und Abruf, die Unterzeile, die Zeilen. */
 export function MessageList(props: Props) {
   const { rows, view, settings } = props
+  // Was eben ging, klappt noch zu, bevor es aus der Liste verschwindet.
+  const shownRows = useLingeringRows(rows)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Beim Wechsel der Ansicht wieder nach oben - sonst landet man mitten in einer fremden Liste.
@@ -107,7 +112,7 @@ export function MessageList(props: Props) {
           aria-multiselectable="true"
           data-selecting={selecting || undefined}
         >
-          {rows.map((row) => {
+          {shownRows.map((row) => {
             const msg = row.head
             const folder = props.folderByKey.get(`${msg.accountId}|${msg.folder}`)
             const open = row.members.some((m) => m.id === props.selectedId)
@@ -117,7 +122,8 @@ export function MessageList(props: Props) {
               <MessageRow
                 key={msg.id}
                 row={row}
-                partner={listPartner(msg, folder?.role)}
+                partner={folder?.role === 'drafts' ? (msg.to[0] ? displayName(msg.to[0]) : '') : listPartner(msg, folder?.role)}
+                draft={folder?.role === 'drafts'}
 
                 folderTag={view.kind === 'search' && folder && folder.role !== 'inbox' ? folderLabel(folder.name, folder.role) : undefined}
                 // Die Zahl meint die ganze Unterhaltung, auch was in Gesendet liegt.
@@ -131,9 +137,11 @@ export function MessageList(props: Props) {
                 snippet={files || msg.snippet || (unread ? 'Wird geladen' : 'Kein Vorschautext')}
                 marks={marks}
                 onClick={props.onSelect}
+                onOpen={props.onOpen}
                 onTogglePick={props.onTogglePick}
                 onContextMenu={props.onContextMenu}
                 onToggleRead={props.onToggleRead}
+                onTrash={props.folderByKey.get(`${msg.accountId}|${msg.folder}`)?.role === 'trash' ? undefined : props.onTrash}
                 onDragStart={props.onDragStart}
               />
             )

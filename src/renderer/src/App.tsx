@@ -2,17 +2,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   Account,
   ComposeMode,
-  ComposeSeed,
   Folder,
+  MessageBody,
   MessageSummary,
   OutgoingMessage,
   SendResult,
   ViewRef
 } from '@shared/types'
 import { collapseThreads, type ThreadRow } from '@shared/threads'
+import { draftFailureOf, draftFailureSentence } from '@shared/types'
 import { timePresets } from '@shared/times'
 import { AccountWizard } from './components/AccountWizard'
-import { Composer } from './components/Composer'
+import { Composer } from './components/windows/Composer'
+import { MailWindow } from './components/windows/MailWindow'
+import { WindowBar, useDockPresence } from './components/windows/WindowBar'
+import { useWindows } from './lib/useWindows'
 import { ContextMenu, type MenuItem, type MenuRequest } from './components/ContextMenu'
 import { MessageList } from './components/list/MessageList'
 import { SelectionPane } from './components/list/SelectionPane'
@@ -46,7 +50,8 @@ import {
 import { drawBadge } from './lib/badge'
 import { addressList, counted, folderLabel, formatAddressFull, fullDate, shortDateTime } from './lib/format'
 import { endMailDrag, startMailDrag } from './lib/mailDrag'
-import { DragGhost } from './components/list/DragGhost'
+import { MailTokens } from './components/list/MailTokens'
+import { flyToTrash, trashTarget, leaveRows, rowLaunchPoint } from './lib/listMotion'
 import { addTrustedDomain } from './lib/remote-images'
 import type { MailtoDraft } from '@shared/mailto'
 import { textToEditorHtml } from './lib/sanitize'
@@ -90,7 +95,11 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   /** Ausgangspunkt fuer Auswahl mit gedrueckter Umschalttaste */
   const [anchorId, setAnchorId] = useState<string | null>(null)
-  const [compose, setCompose] = useState<ComposeSeed | null>(null)
+  const wins = useWindows()
+  const { openCompose } = wins
+  /** Reiter der Leiste: geschlossene Fenster, die noch ausblenden, haben keinen mehr. */
+  const openTabs = useMemo(() => wins.windows.filter((w) => !w.leaving), [wins.windows])
+  const dock = useDockPresence(openTabs.length > 0)
   const [showSettings, setShowSettings] = useState(false)
   const [wizard, setWizard] = useState<{ account?: Account } | null>(null)
   const [menu, setMenu] = useState<MenuRequest | null>(null)
@@ -371,11 +380,13 @@ export default function App() {
     toastTimer.current = hold ? null : setTimeout(() => setToast(null), Math.min(toastMs.current, 3000))
   }, [])
 
+  /** Fuehrt eine Aktion aus; scheitert sie, sagt eine Meldung warum, und `undo` nimmt ihre Vorschau zurueck. */
   const act = useCallback(
-    async (fn: () => Promise<void>, failureText: string) => {
+    async (fn: () => Promise<void>, failureText: string, undo?: () => void) => {
       try {
         await fn()
       } catch (err) {
+        undo?.()
         showToast(`${failureText} ${(err as Error).message}`)
       }
     },
@@ -457,7 +468,7 @@ export default function App() {
         showToast('Richte zuerst ein Konto ein.')
         return
       }
-      setCompose({
+      openCompose({
         mode: 'new',
         accountId: account.id,
         to: draft.to.map((address) => ({ address })),
@@ -465,7 +476,8 @@ export default function App() {
         bcc: draft.bcc.map((address) => ({ address })),
         subject: draft.subject,
         quotedHtml: '',
-        bodyHtml: draft.body ? textToEditorHtml(draft.body) : undefined
+        bodyHtml: draft.body ? textToEditorHtml(draft.body) : undefined,
+        external: true
       })
     },
     [accounts, showToast]
@@ -479,15 +491,19 @@ export default function App() {
     void window.api.takeMailto().then((draft) => draft && composeFromMailto(draft))
   }, [accounts, composeFromMailto])
 
+  /**
+   * Ein neues Verfassen-Fenster. Antwort und Weiterleitung zitieren `source`,
+   * den Text der Mail; ohne Angabe den im Lesebereich.
+   */
   const startCompose = useCallback(
-    (mode: ComposeMode, message?: MessageSummary | null, to?: string) => {
+    (mode: ComposeMode, message?: MessageSummary | null, to?: string, source?: MessageBody | null) => {
       const account = message ? accountsById.get(message.accountId) : accounts[0]
       if (!account) {
         showToast('Richte zuerst ein Konto ein.')
         return
       }
       if (!message || mode === 'new') {
-        setCompose({
+        openCompose({
           mode: 'new',
           accountId: account.id,
           to: to ? [{ address: to }] : [],
@@ -498,9 +514,10 @@ export default function App() {
         return
       }
 
-      const quoted = buildQuote(message, body?.html ?? (body?.text ? textToEditorHtml(body.text) : ''))
+      const text = source === undefined ? body : source
+      const quoted = buildQuote(message, text?.html ?? (text?.text ? textToEditorHtml(text.text) : ''))
       if (mode === 'forward') {
-        setCompose({
+        openCompose({
           mode,
           accountId: account.id,
           to: [],
@@ -521,7 +538,7 @@ export default function App() {
             )
           : []
 
-      setCompose({
+      openCompose({
         mode,
         accountId: account.id,
         to: replyTo,
@@ -544,13 +561,57 @@ export default function App() {
     [act, selectNextAfterRemoval]
   )
 
-  const doDelete = useCallback(
-    (items: MessageSummary[]) => {
-      if (!items.length) return
-      selectNextAfterRemoval(items)
-      void act(() => window.api.messages.remove(items), 'Löschen fehlgeschlagen:')
+  /**
+   * Ein Briefchen je Konto fliegt von der ersten sichtbaren Zeile zum
+   * Papierkorb des Kontos - nur fuer Mails, die wirklich dorthin gehen, und
+   * nur, wenn Zeile und Papierkorb gerade zu sehen sind.
+   */
+  const flyToAccountTrash = useCallback(
+    (items: MessageSummary[], spot: 'del' | 'date'): boolean => {
+      let flew = false
+      const byAccount = new Map<string, MessageSummary[]>()
+      for (const m of items) byAccount.set(m.accountId, [...(byAccount.get(m.accountId) ?? []), m])
+      for (const [accountId, mails] of byAccount) {
+        const trash = (foldersByAccount.get(accountId) ?? []).find((f) => f.role === 'trash')
+        const going = trash ? mails.filter((m) => m.folder !== trash.path) : []
+        if (!trash || !going.length) continue
+        const ids = new Set(going.map((m) => m.id))
+        const from = heads
+          .filter((head) => membersOf(head).some((m) => ids.has(m.id)))
+          .map((head) => rowLaunchPoint(head.id, spot))
+          .find((p) => p !== null)
+        const target = trashTarget(accountId, trash.path)
+        if (from && target) flew = flyToTrash({ from, target, count: going.length }) || flew
+      }
+      return flew
     },
-    [act, selectNextAfterRemoval]
+    [foldersByAccount, heads, membersOf]
+  )
+
+  /**
+   * Die Zeilen dieser Mails gehen, auf dem Weg in den Papierkorb mit
+   * Briefchen. Nur ganze Zeilen klappen zu: geht eine Mail aus einer
+   * Unterhaltung, bleibt deren Zeile stehen. Liefert, was sie zurueckholt.
+   */
+  const leave = useCallback(
+    (items: MessageSummary[], toTrash?: 'del' | 'date'): (() => void) => {
+      const ids = new Set(items.map((m) => m.id))
+      const whole = heads.map(membersOf).filter((members) => members.every((m) => ids.has(m.id)))
+      const flew = toTrash ? flyToAccountTrash(items, toTrash) : false
+      return leaveRows(whole.flat().map((m) => m.id), toTrash ? 'trash' : 'move', flew)
+    },
+    [flyToAccountTrash, heads, membersOf]
+  )
+
+  /** Entf, das Kontextmenue und die Leiste; `spot` sagt, wo an der Zeile das Briefchen abhebt. */
+  const doDelete = useCallback(
+    (items: MessageSummary[], spot: 'del' | 'date' = 'date') => {
+      if (!items.length) return
+      const back = leave(items, spot)
+      selectNextAfterRemoval(items)
+      void act(() => window.api.messages.remove(items), 'Löschen fehlgeschlagen:', back)
+    },
+    [act, leave, selectNextAfterRemoval]
   )
 
   const doMove = useCallback(
@@ -574,12 +635,13 @@ export default function App() {
     [heads, membersOf, selectedIds]
   )
 
-  const dropMail = useCallback(
-    (items: MessageSummary[], accountId: string, folder: Folder) => {
+  /** Verschiebt in einen Ordner, mit Rueckgaengig in der Meldung; `toTrash`: vom roten Bereich einer Zeile. */
+  const moveAway = useCallback(
+    (items: MessageSummary[], folder: Folder, toTrash?: 'del') => {
       // Was schon dort liegt, bleibt, wo es ist.
       const moving = items.filter((m) => m.folder !== folder.path)
-      endMailDrag(accountId)
       if (!moving.length) return
+      const back = leave(moving, toTrash)
       selectNextAfterRemoval(moving)
       const label = folderLabel(folder.name, folder.role)
       void act(async () => {
@@ -602,9 +664,28 @@ export default function App() {
           6000,
           true
         )
-      }, 'Verschieben fehlgeschlagen:')
+      }, 'Verschieben fehlgeschlagen:', back)
     },
-    [act, selectNextAfterRemoval, showToast]
+    [act, leave, selectNextAfterRemoval, showToast]
+  )
+
+  const dropMail = useCallback(
+    (items: MessageSummary[], accountId: string, folder: Folder) => {
+      endMailDrag({ accountId, folder: folder.path })
+      moveAway(items, folder)
+    },
+    [moveAway]
+  )
+
+  /** Der Papierkorb an der Zeile: in den Papierkorb, mit Rueckgaengig. */
+  const trashRow = useCallback(
+    (message: MessageSummary) => {
+      const items = membersOf(message)
+      const trash = (foldersByAccount.get(message.accountId) ?? []).find((f) => f.role === 'trash')
+      if (trash) moveAway(items, trash, 'del')
+      else doDelete(items, 'del')
+    },
+    [doDelete, foldersByAccount, membersOf, moveAway]
   )
 
   const doSnooze = useCallback(
@@ -643,7 +724,7 @@ export default function App() {
         return
       }
       setToast(null)
-      setCompose({
+      openCompose({
         mode: 'new',
         accountId: draft.accountId,
         to: draft.to,
@@ -652,7 +733,8 @@ export default function App() {
         quotedHtml: '',
         inReplyTo: draft.inReplyTo,
         references: draft.references,
-        draft
+        draft,
+        external: true
       })
     },
     [showToast]
@@ -914,7 +996,7 @@ export default function App() {
           label: 'Neue Nachricht von diesem Konto',
           icon: <IconCompose size={15} />,
           onSelect: () =>
-            setCompose({
+            openCompose({
               mode: 'new',
               accountId,
               to: [],
@@ -972,6 +1054,53 @@ export default function App() {
     [act, unreadTotal]
   )
 
+  /** Ein Entwurf aus dem Entwuerfe-Ordner zurueck ins Verfassen-Fenster. */
+  const continueDraft = useCallback(
+    async (message: MessageSummary) => {
+      try {
+        const { ref, message: draft } = await window.api.drafts.open(message.accountId, message.folder, message.uid)
+        openCompose({
+          mode: 'new',
+          accountId: draft.accountId,
+          to: draft.to,
+          cc: draft.cc,
+          bcc: draft.bcc,
+          subject: draft.subject,
+          quotedHtml: '',
+          inReplyTo: draft.inReplyTo,
+          references: draft.references,
+          draft,
+          draftRef: ref
+        })
+      } catch (err) {
+        const kind = draftFailureOf((err as Error).message)
+        showToast(`Der Entwurf ließ sich nicht öffnen. ${draftFailureSentence(kind, accountsById.get(message.accountId)?.label ?? 'Das Konto')}`)
+      }
+    },
+    [openCompose, showToast]
+  )
+
+  const isDraft = (message: MessageSummary | null): boolean =>
+    Boolean(message && folderByKey.get(`${message.accountId}|${message.folder}`)?.role === 'drafts')
+
+  /** Doppelklick in der Liste: die Mail im eigenen Fenster, ein Entwurf zum Weiterschreiben. */
+  const openMessage = (message: MessageSummary): void => {
+    if (isDraft(message)) void continueDraft(message)
+    else void wins.openMail(message)
+  }
+
+  const saveAllAttachments = (message: MessageSummary): void => {
+    void window.api.attachments.saveAll(message.accountId, message.folder, message.uid).then((result) => {
+      if (result.error) showToast(result.error)
+      else if (result.saved) showToast(`${result.saved} Anhänge gespeichert in ${result.path}.`)
+    })
+  }
+
+  const trustDomain = (domain: string): void => {
+    void workspace.updateSettings({ remoteImageDomains: addTrustedDomain(settings?.remoteImageDomains ?? [], domain) })
+    showToast(`Bilder von ${domain} werden ab jetzt immer geladen.`)
+  }
+
   // ------------------------------------------------------- Tastaturkuerzel
 
   useEffect(() => {
@@ -1009,7 +1138,7 @@ export default function App() {
         target.tagName === 'TEXTAREA' ||
         target.tagName === 'SELECT' ||
         target.isContentEditable
-      if (typing || compose || wizard || showSettings || menu || timeAsk) return
+      if (typing || wins.expandedId || wizard || showSettings || menu || timeAsk) return
 
       const index = selected ? heads.findIndex((m) => membersOf(m).some((x) => x.id === selected.id)) : -1
       const step = (next: MessageSummary | undefined): void => {
@@ -1097,7 +1226,7 @@ export default function App() {
   }, [
     askSnooze,
     markSeen,
-    compose,
+    wins.expandedId,
     doArchive,
     doDelete,
     heads,
@@ -1153,8 +1282,11 @@ export default function App() {
     subTitle = loading ? 'Sucht …' : rows.length ? counted(rows.length, 'Treffer', 'Treffer') : 'Keine Treffer'
     subMeta = place
   } else if (view.kind === 'folder') {
-    const unread = info.folder && info.folder.role !== 'drafts' ? info.folder.unread : 0
-    subMeta = [info.account?.label ?? '', unread ? `${unread} ungelesen` : ''].filter(Boolean).join(' · ')
+    // In Entwürfe zählt nicht, was ungelesen ist, sondern wie viele es gibt.
+    const drafts = info.folder?.role === 'drafts'
+    const unread = info.folder && !drafts ? info.folder.unread : 0
+    const amount = drafts ? (!loading && rows.length ? counted(rows.length, 'Entwurf', 'Entwürfe') : '') : unread ? `${unread} ungelesen` : ''
+    subMeta = [info.account?.label ?? '', amount].filter(Boolean).join(' · ')
   } else {
     const byUnread = view.kind === 'unified' && (view.id === 'inbox' || view.id === 'unread')
     const amount = byUnread ? (unreadTotal ? `${unreadTotal} ungelesen` : '') : !loading && rows.length ? String(rows.length) : ''
@@ -1186,7 +1318,8 @@ export default function App() {
   const bottom = settings.previewPosition === 'bottom'
 
   return (
-    <>
+    <div className="vf" data-dock={dock || undefined}>
+      <div className="vf-main">
       <div
         className="app"
         ref={appRef}
@@ -1264,9 +1397,11 @@ export default function App() {
           listRef={listRef}
           onSearchChange={search.setText}
           onSelect={handleSelect}
+          onOpen={openMessage}
           onTogglePick={togglePick}
           onContextMenu={messageMenu}
           onDragStart={startRowDrag}
+          onTrash={trashRow}
           onToggleRead={(message) => {
             const members = membersOf(message)
             const seen = members.some((m) => !m.flags.includes('\\Seen'))
@@ -1342,6 +1477,7 @@ export default function App() {
             zoom={readerZoom}
             onZoomStep={stepReaderZoom}
             onReply={() => startCompose('reply', shown)}
+            onContinueDraft={shown && isDraft(shown) ? () => void continueDraft(shown) : undefined}
             onReplyAll={() => startCompose('replyAll', shown)}
             onForward={() => startCompose('forward', shown)}
             onArchive={() => doArchive(readerTargets)}
@@ -1355,39 +1491,80 @@ export default function App() {
               setSelected(null)
             }}
             onMove={(path) => doMove(readerTargets, path)}
-            onSaveAllAttachments={() => {
-              if (!shown) return
-              void window.api.attachments
-                .saveAll(shown.accountId, shown.folder, shown.uid)
-                .then((result) => {
-                  if (result.error) showToast(result.error)
-                  else if (result.saved) showToast(`${result.saved} Anhänge gespeichert in ${result.path}.`)
-                })
-            }}
-            onTrustDomain={(domain) => {
-              void workspace.updateSettings({
-                remoteImageDomains: addTrustedDomain(settings.remoteImageDomains, domain)
-              })
-              showToast(`Bilder von ${domain} werden ab jetzt immer geladen.`)
-            }}
+            onSaveAllAttachments={() => shown && saveAllAttachments(shown)}
+            onTrustDomain={trustDomain}
           />
         )}
       </div>
 
-      {menu && <ContextMenu request={menu} onClose={() => setMenu(null)} />}
-
-      {compose && (
-        <Composer
-          accounts={accounts}
-          seed={compose}
-          templates={settings.templates}
-          onClose={() => setCompose(null)}
-          onSent={(result) => {
-            setCompose(null)
-            handleSent(result)
-          }}
+      {wins.windows.length > 0 && (
+        // Klick daneben legt das Fenster in die Leiste; die Leiste selbst liegt nicht darunter.
+        <div
+          className="scrim"
+          aria-hidden="true"
+          data-on={wins.expandedId ? '' : undefined}
+          onMouseDown={() => void wins.minimize()}
         />
       )}
+      {wins.windows.map((w) =>
+        w.kind === 'mail' ? (
+          <MailWindow
+            key={w.id}
+            windowId={w.id}
+            message={w.message}
+            expanded={w.id === wins.expandedId}
+            leaving={Boolean(w.leaving)}
+            ownAddress={accountsById.get(w.message.accountId)?.email}
+            loadRemoteByDefault={settings.loadRemoteImages}
+            trustedDomains={settings.remoteImageDomains}
+            zoom={readerZoom}
+            onZoomStep={stepReaderZoom}
+            onTrustDomain={trustDomain}
+            onSaveAllAttachments={() => saveAllAttachments(w.message)}
+            onMinimize={() => void wins.minimize()}
+            onClose={() => wins.closeWindow(w.id)}
+            onReply={(text) => startCompose('reply', w.message, undefined, text)}
+            onForward={(text) => startCompose('forward', w.message, undefined, text)}
+            onDelete={() => {
+              wins.closeWindow(w.id)
+              doDelete([w.message])
+            }}
+          />
+        ) : (
+        <Composer
+          key={w.id}
+          windowId={w.id}
+          accounts={accounts}
+          seed={w.seed}
+          templates={settings.templates}
+          expanded={w.id === wins.expandedId}
+          leaving={Boolean(w.leaving)}
+          onMinimize={() => void wins.minimize()}
+          onClosed={() => wins.closeWindow(w.id)}
+          onSent={(result) => {
+            wins.closeWindow(w.id)
+            handleSent(result)
+          }}
+          onTitle={(title) => wins.patch(w.id, { title })}
+          onSaveFailed={(failed) => wins.patch(w.id, { failed })}
+          onSaved={(draftRef) => wins.patch(w.id, { draftRef })}
+          register={wins.register}
+        />
+        )
+      )}
+      </div>
+
+      {dock && (
+        <WindowBar
+          tabs={openTabs}
+          expandedId={wins.expandedId}
+          leaving={dock === 'leaving'}
+          onToggle={(id) => void wins.toggle(id)}
+          onClose={(id) => void wins.closeFromBar(id)}
+        />
+      )}
+
+      {menu && <ContextMenu request={menu} onClose={() => setMenu(null)} />}
 
       {timeAsk && (
         <TimeDialog
@@ -1440,7 +1617,7 @@ export default function App() {
         />
       )}
 
-      <DragGhost accountsById={accountsById} />
+      <MailTokens />
 
       {toast && (
         <div
@@ -1469,7 +1646,7 @@ export default function App() {
           )}
         </div>
       )}
-    </>
+    </div>
   )
 }
 

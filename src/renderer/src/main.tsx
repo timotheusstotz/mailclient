@@ -4,6 +4,7 @@ import App from './App'
 import './styles/app.css'
 import './styles/reader.css'
 import './styles/list.css'
+import './styles/windows.css'
 import './styles/interaction.css'
 
 /*

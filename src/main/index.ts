@@ -18,6 +18,7 @@ import type {
   Account,
   AccountDraft,
   AccountId,
+  DraftRef,
   MessageSummary,
   OutgoingMessage,
   SearchQuery,
@@ -123,12 +124,16 @@ function createWindow(): BrowserWindow {
     kommt man weiterhin richtig raus.
   */
   window.on('close', (event) => {
-    if (quitting || !service?.getSettings().runInTray) return
-    // Ohne Symbol im Infobereich gaebe es keinen Weg zurueck - dann lieber
-    // beenden, als ein unerreichbares Programm zu hinterlassen.
-    if (!tray) return
+    const hides = !quitting && Boolean(service?.getSettings().runInTray) && Boolean(tray)
+    if (hides) {
+      event.preventDefault()
+      window.hide()
+      return
+    }
+    // Das Fenster geht wirklich zu: offene Entwuerfe vorher sichern.
+    if (draftsFlushed) return
     event.preventDefault()
-    window.hide()
+    void flushOpenDrafts().then((ok) => ok && window.close())
   })
 
   // Links aus Mails oeffnen im Systembrowser, nie in einem Electron-Fenster.
@@ -391,6 +396,10 @@ function registerIpc(service: MailService): void {
   )
 
   handle('mail:send', (msg: OutgoingMessage, opts?: { sendAt?: number }) => service.send(msg, opts))
+  handle('drafts:save', (msg: OutgoingMessage, previous?: DraftRef) => service.saveDraft(msg, previous))
+  handle('drafts:open', (accountId: AccountId, folder: string, uid: number) => service.openDraft(accountId, folder, uid))
+  handle('drafts:discard', (ref: DraftRef) => service.discardDraft(ref))
+  handle('drafts:drop', (ref: DraftRef) => service.dropDraft(ref))
   handle('outbox:list', () => service.getOutbox())
   handle('outbox:discard', (id: string) => service.discardOutboxEntry(id))
   handle('outbox:take', (id: string) => service.takeOutboxEntry(id))
@@ -556,13 +565,55 @@ app.on('window-all-closed', () => {
 })
 
 
+/** Die Oberflaeche hat ihre offenen Entwuerfe gesichert (oder es gab keine). */
+let draftsFlushed = false
+/** So lange darf das Sichern beim Beenden hoechstens dauern. */
+const DRAFT_FLUSH_MS = 8_000
+
+/** Ein Beenden laeuft gerade; ein zweites wartet nicht noch einmal. */
+let quitPending = false
+
+/**
+ * Bittet die Oberflaeche, alle geaenderten Verfassen-Fenster als Entwurf zu
+ * speichern, und wartet auf ihre Antwort - nie laenger als DRAFT_FLUSH_MS.
+ * false: ein Fenster liess sich nicht sichern und bleibt offen. Beim zweiten
+ * Versuch sagt die Oberflaeche ja, wie beim scharfen X.
+ */
+function flushOpenDrafts(): Promise<boolean> {
+  if (draftsFlushed || !mainWindow || mainWindow.isDestroyed()) {
+    draftsFlushed = true
+    return Promise.resolve(true)
+  }
+  return new Promise((resolve) => {
+    const done = (_event?: unknown, ok: boolean = true): void => {
+      clearTimeout(timer)
+      ipcMain.removeListener('app:quit-ready', done)
+      draftsFlushed = ok
+      resolve(ok)
+    }
+    const timer = setTimeout(done, DRAFT_FLUSH_MS)
+    ipcMain.on('app:quit-ready', done)
+    emit('app:before-quit', null)
+  })
+}
+
 app.on('before-quit', async (event) => {
+  if (!service) return
+  event.preventDefault()
+  if (quitPending) return
+  quitPending = true
   // Ab hier darf das Fenster sich wirklich schliessen, statt sich zu verstecken.
   quitting = true
-  if (!service) return
+  // Offene Entwuerfe zuerst. Liess sich einer nicht sichern, bleibt die App
+  // offen und zeigt ihn; ein zweites Beenden geht dann durch.
+  if (!(await flushOpenDrafts())) {
+    quitting = false
+    quitPending = false
+    showWindow()
+    return
+  }
   const pending = service
   service = null
-  event.preventDefault()
   // Ungeschriebene Aenderungen erst auf die Platte, dann wirklich beenden.
   await pending.shutdown().catch(() => {})
   app.quit()

@@ -7,7 +7,9 @@ import type {
   AccountStatus,
   ConnectionTestResult,
   Contact,
+  DraftRef,
   Folder,
+  LoadedDraft,
   MessageBody,
   MessageSummary,
   OutboxItem,
@@ -90,6 +92,19 @@ const api = {
     send: (msg: OutgoingMessage, opts?: { sendAt?: number }): Promise<SendResult> =>
       ipcRenderer.invoke('mail:send', msg, opts)
   },
+  drafts: {
+    /** Speichert eine Fassung; previous ist die, die sie ersetzt. */
+    save: (msg: OutgoingMessage, previous?: DraftRef): Promise<DraftRef> =>
+      ipcRenderer.invoke('drafts:save', msg, previous),
+    open: (accountId: AccountId, folder: string, uid: number): Promise<LoadedDraft> =>
+      ipcRenderer.invoke('drafts:open', accountId, folder, uid),
+    /** In den Papierkorb */
+    discard: (ref: DraftRef): Promise<void> => ipcRenderer.invoke('drafts:discard', ref),
+    /** Endgueltig weg, nach dem Versand */
+    drop: (ref: DraftRef): Promise<void> => ipcRenderer.invoke('drafts:drop', ref)
+  },
+  /** Antwort auf 'app:before-quit': true, wenn beendet werden darf. */
+  quitReady: (ok: boolean): void => ipcRenderer.send('app:quit-ready', ok),
   outbox: {
     list: (): Promise<OutboxItem[]> => ipcRenderer.invoke('outbox:list'),
     discard: (id: string): Promise<void> => ipcRenderer.invoke('outbox:discard', id),
@@ -157,7 +172,8 @@ const ALLOWED_CHANNELS = [
   'menu:readerZoom',
   'mail:open',
   'mail:sendFailed',
-  'compose:mailto'
+  'compose:mailto',
+  'app:before-quit'
 ] as const
 
 export type AppChannel = (typeof ALLOWED_CHANNELS)[number]

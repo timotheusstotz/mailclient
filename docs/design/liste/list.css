@@ -323,3 +323,54 @@
 .mc .cmp-col h3 { margin: 0; font: 650 15px/1.2 var(--sans); color: var(--ink); letter-spacing: -0.01em; }
 .mc .cmp-col p { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--ink-3); min-height: 36px; }
 .mc .cmp-frame { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+
+/* ===================== v3: trash on row hover (slider) ===================== */
+/* On hover the whole row slides 72 px to the left as one block; behind it, at the right edge, the trash
+   area is uncovered. Nothing else in the list moves, the row keeps its height. */
+.mc .r.has-del { overflow: hidden; }
+.mc .r.has-del > :not(.r-del):not(.cur) { transition: transform 220ms var(--ease); }
+.mc .r-del {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 72px; border: 0; border-radius: 0; padding: 0; z-index: 2;
+  background: var(--danger-soft); color: var(--danger); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  font: 600 11px/1 var(--sans); cursor: pointer;
+  transform: translateX(100%); transition: transform 220ms var(--ease), background-color var(--dur-1) linear, color var(--dur-1) linear;
+}
+.mc .r-del .ic { width: 18px; height: 18px; transition: transform var(--dur-2) var(--ease); }
+.mc .r.has-del.is-hover > :not(.r-del):not(.cur) { transform: translateX(-72px); }
+.mc .r.has-del.is-hover .r-del { transform: none; }
+.mc .r-del.is-hover { background: var(--danger); color: var(--paper); }
+.mc .r-del.is-hover .ic { transform: rotate(-10deg); }
+.mc .r-del:active { filter: brightness(0.92); }
+.mc .r-del:focus-visible { transform: none; outline: 2px solid var(--focus); outline-offset: -3px; }
+.mc .r .cur { position: absolute; z-index: 3; }
+@media (hover: hover) {
+  .mc .r.has-del:hover > :not(.r-del):not(.cur) { transform: translateX(-72px); }
+  .mc .r.has-del:hover .r-del { transform: none; }
+  .mc .r-del:hover { background: var(--danger); color: var(--paper); }
+  .mc .r-del:hover .ic { animation: mc-shake 460ms var(--ease) 1; }
+}
+
+/* ===================== v4: small motions (flight to Papierkorb, mail token while dragging) ===================== */
+.mc .tok-mail { position: absolute; z-index: 40; width: 40px; height: 30px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line-strong); box-shadow: var(--shadow-pop); color: var(--ink); display: grid; place-items: center; pointer-events: none; transform: rotate(-8deg); }
+.mc .tok-mail .ic { width: 20px; height: 20px; }
+.mc .tok-mail .cnt { position: absolute; top: -9px; right: -10px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font: 700 11.5px/20px var(--sans); text-align: center; font-variant-numeric: tabular-nums; box-shadow: 0 0 0 2px var(--paper); }
+.mc .tok-mail.is-pop { transform: scale(0.75); opacity: 0.8; }
+.mc .tok-mail.is-sink { transform: scale(0.55); opacity: 0.9; }
+.mc .tok-mail.is-no { color: var(--ink-3); border-color: var(--line); }
+.mc .tok-mail.is-no .cnt { background: var(--surface-3); color: var(--ink-2); }
+.mc .tok-mail.is-fly { transform: rotate(-14deg) scale(0.9); }
+.mc .tok-mail.is-lift { transform: rotate(-6deg) scale(1.1); }
+.mc .tok-mail.is-land { transform: scale(0.6); }
+.mc .r.is-leaving { height: 40px; padding-top: 0; padding-bottom: 0; overflow: hidden; background: var(--danger-soft); }
+.mc .r.is-leaving > * { opacity: 0; }
+.mc .fi.is-gulp { background: var(--danger-soft); color: var(--danger); }
+.mc .fi.is-gulp > .ic { transform: scale(1.25); color: var(--danger); }
+.mc .fi.is-gulp-ok { background: var(--accent-soft); color: var(--accent-ink); }
+.mc .fi.is-gulp-ok > .ic { transform: scale(1.25); color: var(--accent-ink); }
+.mc .flight { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; pointer-events: none; z-index: 39; fill: none; stroke: var(--ink-3); stroke-width: 1.5; stroke-dasharray: 4 5; }
+.mc .fr-cap { font: 650 15px/1.2 var(--sans); color: var(--ink); display: flex; gap: 10px; align-items: baseline; }
+.mc .fr-cap span { font: 600 13px/1 var(--sans); color: var(--accent-ink); font-variant-numeric: tabular-nums; }
+.mc .fr-box { width: 608px; height: 560px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; position: relative; }
+.mc .fr-in { position: absolute; left: -60px; top: -40px; width: 1440px; height: 900px; }
+.mc .fr-note { font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+.mc .fr-note b { color: var(--ink); }

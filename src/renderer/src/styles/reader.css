@@ -638,6 +638,13 @@
   flex: none;
   color: var(--ink-3);
 }
+/* Entwurf: eine ruhige Zeile ohne Knoepfe */
+.rv-note--draft {
+  min-height: 44px;
+  gap: 10px;
+  padding: 0 24px;
+  font-size: 13px;
+}
 .rv-note b {
   color: var(--ink);
   font-weight: 600;

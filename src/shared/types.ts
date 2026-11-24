@@ -288,6 +288,61 @@ export interface ComposeSeed {
    * ganze Inhalt - Text, Blindkopien, Anhaenge - von hier, ohne neue Signatur.
    */
   draft?: OutgoingMessage
+  /**
+   * Inhalt von ausserhalb (mailto-Link, aus dem Ausgang zurueckgeholt): er steht
+   * sonst nirgends und gilt deshalb von Anfang an als ungespeichert.
+   */
+  external?: boolean
+  /** Der Entwurf auf dem Server, den dieses Fenster bearbeitet; Speichern ersetzt ihn. */
+  draftRef?: DraftRef
+}
+
+/** Wo ein gespeicherter Entwurf auf dem Server liegt. */
+export interface DraftRef {
+  accountId: AccountId
+  /** Pfad des Entwuerfe-Ordners */
+  folder: string
+  /** Aus APPENDUID, wenn der Server sie nennt */
+  uid?: number
+  /** Zum Wiederfinden, wenn die UID fehlt; mit spitzen Klammern */
+  messageId: string
+}
+
+/**
+ * Warum ein Entwurf nicht gespeichert wurde. `drafts.save` scheitert mit
+ * genau einem dieser Woerter als Fehlertext; die Oberflaeche macht daraus
+ * einen Satz mit dem Kontonamen - nie einen rohen Fehlercode.
+ */
+export const DRAFT_FAILURES = ['offline', 'auth', 'timeout', 'gone', 'other'] as const
+export type DraftFailure = (typeof DRAFT_FAILURES)[number]
+
+/** Den Grund aus dem Fehlertext lesen, den IPC um die Meldung legt. */
+export function draftFailureOf(message: string): DraftFailure {
+  const word = /(\w+)\s*$/.exec(message)?.[1]
+  return (DRAFT_FAILURES as readonly string[]).includes(word ?? '') ? (word as DraftFailure) : 'other'
+}
+
+/** Warum es nicht ging, in einem Satz - nie ein Fehlercode. */
+export function draftFailureSentence(kind: DraftFailure, account: string): string {
+  switch (kind) {
+    case 'offline':
+      return `${account} ist offline.`
+    case 'auth':
+      return `Die Anmeldung bei ${account} ist fehlgeschlagen.`
+    case 'timeout':
+      return 'Der Server hat nicht geantwortet.'
+    case 'gone':
+      return 'Der Entwurf ist auf dem Server nicht mehr da.'
+    default:
+      return 'Der Server hat den Entwurf nicht angenommen.'
+  }
+}
+
+/** Ein vom Server gelesener Entwurf, bereit fuer das Verfassen-Fenster. */
+export interface LoadedDraft {
+  ref: DraftRef
+  /** Der Betreff darf leer sein. */
+  message: OutgoingMessage
 }
 
 export interface SearchQuery {

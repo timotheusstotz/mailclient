@@ -1,11 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import type { Account, Folder } from '@shared/types'
-import { timePresets, type TimePreset } from '@shared/times'
 import { moveChoices } from '../../lib/folders'
-import { folderLabel, upcomingTime } from '../../lib/format'
+import { folderLabel } from '../../lib/format'
 import {
   IconArchive,
-  IconCalendarArrow,
   IconCheck,
   IconChevron,
   IconClock,
@@ -14,18 +12,17 @@ import {
   IconForward,
   IconInbox,
   IconMailUnread,
-  IconMoon,
   IconReply,
   IconReplyAll,
   IconSearch,
   IconSent,
   IconStar,
   IconStarFilled,
-  IconSunrise,
   IconTrash,
   IconJunk
 } from '../icons'
 import { MenuButton, MenuItem, useMenuClose } from './Menu'
+import { TimeMenu } from './TimeMenu'
 
 export interface ActionBarProps {
   /** Name der Leiste fuer Screenreader */
@@ -40,6 +37,8 @@ export interface ActionBarProps {
   folders: Folder[]
   /** Gesetzt, wenn sich nicht verschieben laesst: der Grund, fuer den Tooltip */
   moveBlocked?: string
+  /** Ein Entwurf: rechts steht nur der Papierkorb */
+  draft?: boolean
   onToggleFlag: () => void
   onMarkUnread: () => void
   onSnooze: (until: number) => void
@@ -63,71 +62,85 @@ export function ActionBar(props: ActionBarProps) {
 
       <div className="rv-grow" />
 
-      <div className="rv-seg">
-        <button
-          type="button"
-          className={`rv-btn rv-btn--icon${props.flagged ? ' rv-star-on' : ''}`}
-          aria-label="Markieren"
-          aria-pressed={props.flagged}
-          title={`${flagLabel} · S`}
-          onClick={props.onToggleFlag}
-        >
-          {props.flagged ? <IconStarFilled /> : <IconStar />}
-        </button>
-        <button
-          type="button"
-          className="rv-btn rv-btn--icon"
-          aria-label="Als ungelesen markieren"
-          title="Als ungelesen markieren · U"
-          onClick={props.onMarkUnread}
-        >
-          <IconMailUnread />
-        </button>
-      </div>
+      {!props.draft && (
+        <>
+          <div className="rv-seg">
+            <button
+              type="button"
+              className={`rv-btn rv-btn--icon${props.flagged ? ' rv-star-on' : ''}`}
+              aria-label="Markieren"
+              aria-pressed={props.flagged}
+              title={`${flagLabel} · S`}
+              onClick={props.onToggleFlag}
+            >
+              {props.flagged ? <IconStarFilled /> : <IconStar />}
+            </button>
+            <button
+              type="button"
+              className="rv-btn rv-btn--icon"
+              aria-label="Als ungelesen markieren"
+              title="Als ungelesen markieren · U"
+              onClick={props.onMarkUnread}
+            >
+              <IconMailUnread />
+            </button>
+          </div>
+
+          <div className="rv-seg">
+            <MenuButton
+              label="Zurückstellen"
+              title="Zurückstellen · B"
+              className="rv-btn rv-btn--menu"
+              menuLabel="Zurückstellen bis"
+              menuClassName="rv-menu"
+              menu={() => (
+                <TimeMenu title="Zurückstellen bis" onPick={props.onSnooze} onAskCustom={props.onAskSnooze} />
+              )}
+            >
+              <IconClock />
+              <span className="rv-wide-lbl">Zurückstellen</span>
+              <IconChevron size={14} className="rv-chev" />
+            </MenuButton>
+            <MenuButton
+              label="Verschieben"
+              title={props.moveBlocked ?? 'In Ordner verschieben'}
+              disabled={Boolean(props.moveBlocked)}
+              className={`rv-btn rv-btn--menu${props.moveBlocked ? ' rv-btn--muted' : ''}`}
+              menuLabel="In Ordner verschieben"
+              menuClassName="rv-menu rv-menu--move"
+              menu={() => (
+                <MoveMenu
+                  account={props.account}
+                  folder={props.folder}
+                  folders={props.folders}
+                  onMove={props.onMove}
+                  onArchive={props.onArchive}
+                />
+              )}
+            >
+              <IconFolderMove />
+              <span className="rv-wide-lbl">Verschieben</span>
+              <IconChevron size={14} className="rv-chev" />
+            </MenuButton>
+          </div>
+        </>
+      )}
 
       <div className="rv-seg">
-        <MenuButton
-          label="Zurückstellen"
-          title="Zurückstellen · B"
-          className="rv-btn rv-btn--menu"
-          menuLabel="Zurückstellen bis"
-          menuClassName="rv-menu"
-          menu={() => <SnoozeMenu onSnooze={props.onSnooze} onAskSnooze={props.onAskSnooze} />}
-        >
-          <IconClock />
-          <span className="rv-wide-lbl">Zurückstellen</span>
-          <IconChevron size={14} className="rv-chev" />
-        </MenuButton>
-        <MenuButton
-          label="Verschieben"
-          title={props.moveBlocked ?? 'In Ordner verschieben'}
-          disabled={Boolean(props.moveBlocked)}
-          className={`rv-btn rv-btn--menu${props.moveBlocked ? ' rv-btn--muted' : ''}`}
-          menuLabel="In Ordner verschieben"
-          menuClassName="rv-menu rv-menu--move"
-          menu={() => (
-            <MoveMenu
-              account={props.account}
-              folder={props.folder}
-              folders={props.folders}
-              onMove={props.onMove}
-              onArchive={props.onArchive}
-            />
-          )}
-        >
-          <IconFolderMove />
-          <span className="rv-wide-lbl">Verschieben</span>
-          <IconChevron size={14} className="rv-chev" />
-        </MenuButton>
-      </div>
-
-      <div className="rv-seg">
-        <button type="button" className="rv-btn rv-btn--wide-icon" aria-label="Archivieren" title="Archivieren · E" onClick={props.onArchive}>
-          <IconArchive />
-          <span className="rv-wide-lbl" aria-hidden="true">
-            Archivieren
-          </span>
-        </button>
+        {!props.draft && (
+          <button
+            type="button"
+            className="rv-btn rv-btn--wide-icon"
+            aria-label="Archivieren"
+            title="Archivieren · E"
+            onClick={props.onArchive}
+          >
+            <IconArchive />
+            <span className="rv-wide-lbl" aria-hidden="true">
+              Archivieren
+            </span>
+          </button>
+        )}
         <button
           type="button"
           className="rv-btn rv-btn--icon rv-btn--danger"
@@ -171,39 +184,6 @@ export function ReplyActions({
         <IconForward />
         <span className="rv-lbl">Weiterleiten</span>
       </button>
-    </>
-  )
-}
-
-const presetIcons: Record<TimePreset['id'], ReactNode> = {
-  hour: <IconClock />,
-  evening: <IconMoon />,
-  tomorrow: <IconSunrise />,
-  monday: <IconCalendarArrow />
-}
-
-function SnoozeMenu({ onSnooze, onAskSnooze }: { onSnooze: (until: number) => void; onAskSnooze: () => void }) {
-  // Beim Oeffnen berechnet: so stimmt "In einer Stunde" auch nach einer Stunde Lesen.
-  const [presets] = useState(() => timePresets())
-  return (
-    <>
-      <div className="rv-menu-title" aria-hidden="true">
-        Zurückstellen bis
-      </div>
-      {presets.map((preset) => (
-        <MenuItem
-          key={preset.id}
-          icon={presetIcons[preset.id]}
-          meta={upcomingTime(preset.at)}
-          onSelect={() => onSnooze(preset.at)}
-        >
-          {preset.name}
-        </MenuItem>
-      ))}
-      <div className="rv-menu-sep" role="separator" />
-      <MenuItem icon={<IconCalendarArrow />} onSelect={onAskSnooze}>
-        Zeitpunkt wählen …
-      </MenuItem>
     </>
   )
 }

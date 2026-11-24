@@ -99,6 +99,9 @@ async function shot(name) {
     const png = await Promise.race([
       app.evaluate(async ({ BrowserWindow }) => {
         const win = BrowserWindow.getAllWindows()[0]
+        // Das unsichtbare Fenster zeichnet nicht von selbst neu; ohne Anstoss kaeme ein altes Bild.
+        win.webContents.invalidate()
+        await new Promise((resolve) => setTimeout(resolve, 200))
         const image = await win.webContents.capturePage(undefined, { stayHidden: true })
         return image.toPNG().toString('base64')
       }),
@@ -114,10 +117,17 @@ async function shot(name) {
 async function reset() {
   if (!page) return
   try {
+    // Fenster aus der Leiste schliessen (sichert sie); ein zweiter Klick schliesst auch nach einem Fehler.
+    const bar = page.getByRole('navigation', { name: 'Offene Fenster' })
+    for (let i = 0; i < 8 && (await bar.count()); i++) {
+      await bar.getByRole('button', { name: /^Schließen/ }).first().click({ timeout: 2000 }).catch(() => {})
+      await sleep(300)
+    }
     for (let i = 0; i < 3 && (await page.locator('.overlay, .menu-backdrop, [role="menu"]').count()); i++) {
       await page.keyboard.press('Escape')
       const done = page.locator('.dialog-foot .btn-primary', { hasText: 'Fertig' })
-      if (await done.count()) await done.click({ timeout: 1000 }).catch(() => {})
+      // Direkt geklickt: das unsichtbare Fenster zeichnet nicht immer, dann wartet Playwright vergeblich auf Stillstand.
+      if (await done.count()) await done.evaluate((el) => el.click()).catch(() => {})
       await sleep(150)
     }
     if (await searchBox().count()) {
@@ -206,6 +216,41 @@ async function subjects(user, folder = 'INBOX') {
         }
       }
       return out
+    } finally {
+      lock.release()
+    }
+  } finally {
+    await client.logout().catch(() => {})
+  }
+}
+
+/** Mails eines Ordners mit Quelltext und Flags, direkt vom Server. */
+async function folderMails(user, folder) {
+  const client = await imap(user)
+  try {
+    const lock = await client.getMailboxLock(folder)
+    try {
+      const out = []
+      if (client.mailbox.exists) {
+        for await (const msg of client.fetch('1:*', { envelope: true, flags: true, source: true })) {
+          out.push({ subject: msg.envelope.subject ?? '', draft: msg.flags.has('\\Draft'), source: msg.source.toString() })
+        }
+      }
+      return out
+    } finally {
+      lock.release()
+    }
+  } finally {
+    await client.logout().catch(() => {})
+  }
+}
+
+async function clearFolder(user, folder) {
+  const client = await imap(user)
+  try {
+    const lock = await client.getMailboxLock(folder)
+    try {
+      if (client.mailbox.exists) await client.messageDelete('1:*')
     } finally {
       lock.release()
     }
@@ -352,8 +397,11 @@ async function listShots() {
     await listVariants('leer-suche')
     await search('')
 
+    // Fruehere Pruefungen hinterlassen Entwuerfe (Esc speichert); hier soll der Ordner leer sein.
+    await clearFolder(TIM, 'Drafts')
     await railButton(`Test · ${TIM}`).click()
     await folderItem('Entwürfe').click()
+    await page.evaluate(() => window.api.accounts.list().then((a) => window.api.sync.refresh(a[0].id, 'Drafts')))
     await page.getByText('Keine Entwürfe').waitFor()
     await listVariants('leer-ordner')
 
@@ -430,9 +478,15 @@ async function portShots() {
         { filename: 'Reise_23-11-2026.ics', content: 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n'.repeat(60), contentType: 'text/calendar' }
       ]
     })), ['\Seen'])
+    // Die Rundmail legt sonst ein Test der Leseansicht an; laeuft nur ein Teil der Tests, fehlt sie.
+    if (!(await subjects(TIM)).some((m) => m.subject === 'Rundmail mit Anlagen')) {
+      const files = Array.from({ length: 9 }, (_, i) => ({ filename: `anlage-${i + 1}.txt`, content: `Inhalt ${i + 1}`, contentType: 'text/plain' }))
+      await tim.append('INBOX', await raw(mail(ANNA, TIM, 'Rundmail mit Anlagen', { cc: 'jonas@test.local, lea@test.local', attachments: files })), [])
+    }
     await tim.logout()
     await page.evaluate(() => window.api.sync.refresh())
     await until(async () => (await rowBySubject('Buchungsbestätigung').count()) === 1, 'Mail mit Hinweisen kommt nicht an', 30000)
+    await until(async () => (await rowBySubject('Rundmail mit Anlagen').count()) === 1, 'Rundmail kommt nicht an', 30000)
 
     await openForShot('Layout-Test')
     await portVariants('mail')
@@ -506,6 +560,134 @@ async function portShots() {
       'Konto kommt nach den Bildern nicht zur Ruhe',
       90000
     )
+  }
+}
+
+/** Legt Dateien auf das aufgeklappte Fenster, als kaemen sie aus dem Explorer. */
+async function dropFiles(files) {
+  await page.evaluate((list) => {
+    const data = new DataTransfer()
+    for (const f of list) data.items.add(new File([new Uint8Array(f.size)], f.name, { type: f.type }))
+    const target = document.querySelector('.compose-dialog:not([hidden])')
+    for (const type of ['dragenter', 'dragover', 'drop']) {
+      target.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }))
+    }
+  }, files)
+}
+
+/*
+  Bilder der Fenster fuer den Vergleich mit dem Entwurf in docs/design/verfassen:
+  port-verfassen, port-leiste (und die weiteren, sobald es sie gibt), dunkel,
+  1440 x 900. Die Bewegungen sind dabei abgeschaltet.
+*/
+/** Ein Bild nach einem frischen Frame: eine kurze Groessenaenderung zwingt das unsichtbare Fenster zu zeichnen. */
+async function freshShot(name) {
+  await page.setViewportSize({ width: 1441, height: 900 })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await sleep(400)
+  await shot(name)
+}
+
+async function windowShots() {
+  const before = await page.evaluate(() => window.api.settings.get())
+  const still = await page.addStyleTag({ content: '*, *::before, *::after { transition: none !important; animation: none !important; }' })
+  try {
+    await setTheme('dark')
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await clearFolder(TIM, 'Drafts')
+
+    await openComposer()
+    await fillComposer({
+      to: 'rueckforderung-prime@amazon.example',
+      subject: 'Antrag auf Rückerstattung zu viel gezahlter Prime-Beiträge nach dem BGH-Urteil vom 12. November 2026 (bitte Kundennummer und Zeitraum angeben)',
+      body: ['Guten Tag,', '', 'hiermit beantrage ich die Erstattung der zu viel gezahlten Prime-Beiträge.', '', 'Kundennummer: 302-4471185-9920'].join('\n')
+    })
+    await dropFiles([
+      { name: 'Kontoauszüge_Prime_2023-2026.pdf', size: 412 * 1024, type: 'application/pdf' },
+      { name: 'Übersicht.txt', size: 1200 * 1024, type: 'text/plain' }
+    ])
+    await composeOpen().getByRole('button', { name: /Kontoauszüge.*entfernen/ }).waitFor()
+    await composeOpen().getByRole('button', { name: 'Als Entwurf speichern' }).click()
+    await page.getByRole('status').filter({ hasText: 'Entwurf gespeichert' }).waitFor()
+    await freshShot('port-verfassen')
+
+    // Drei Fenster in der Leiste: zwei Entwuerfe und das eben geschriebene.
+    await page.mouse.click(8, 450)
+    await windowBar().getByRole('button', { name: /^Antrag auf/ }).waitFor()
+    await openComposer()
+    await page.mouse.click(8, 450)
+    await until(async () => (await windowBar().getByRole('group').count()) === 2, 'zweiter Reiter fehlt')
+    await windowBar().getByRole('group').nth(1).getByRole('button', { name: /^Schließen/ }).hover()
+    await sleep(700)
+    await freshShot('port-leiste')
+
+    // Speichern scheitert: das erste Fenster zurueck, geaendert, das Konto offline.
+    await windowBar().getByRole('button', { name: /^Antrag auf/ }).click()
+    await page.click('.compose-editor:visible')
+    await page.keyboard.press('Control+End')
+    await page.keyboard.type(' Bitte bestätigen Sie mir kurz den Eingang.')
+    cutImap()
+    try {
+      await composeOpen().getByRole('button', { name: 'Schließen', exact: true }).click()
+      await composeOpen().getByRole('alert').waitFor({ timeout: 30000 })
+      await freshShot('port-fehler')
+    } finally {
+      imapProxy.down = false
+    }
+    // Wieder verbunden: der Entwurf geht ueber die App in den Papierkorb, so weiss auch ihre Liste davon.
+    await until(
+      () => page.evaluate(() => window.api.accounts.statuses().then((s) => s.every((x) => x.phase === 'idle'))),
+      'Konto kommt nach der Unterbrechung nicht zur Ruhe',
+      90000
+    )
+    // Schliessen statt Verwerfen: Verworfenes laege im Papierkorb und taete in spaeteren Suchen auf.
+    // Wieder online speichert der Klick; ist das X noch scharf, schliesst er ohne Speichern.
+    await composeOpen().getByRole('button', { name: /^Schließen/ }).click()
+    await until(async () => (await composeOpen().count()) === 0, 'Schliessen schliesst nicht')
+
+    // Eine Mail mit Anhang im eigenen Fenster; der Entwurf ohne Betreff liegt weiter in der Leiste.
+    await rowBySubject('Rechnung 4711').first().dblclick()
+    const mailWindow = page.getByRole('dialog', { name: 'Rechnung 4711' })
+    await mailWindow.getByRole('region', { name: 'Anhänge' }).waitFor()
+    await sleep(600)
+    await freshShot('port-mail-fenster')
+    await page.keyboard.press('Escape')
+    await windowBar().getByRole('button', { name: /^Schließen/ }).click()
+    await until(async () => (await windowBar().count()) === 0, 'Leiste bleibt stehen')
+
+    // Entwuerfe: einer mit Empfaenger und Anhang, einer ohne Empfaenger und Betreff.
+    await clearFolder(TIM, 'Drafts')
+    await page.evaluate(() =>
+      window.api.accounts.list().then(async (accounts) => {
+        const base = { accountId: accounts[0].id, cc: [], bcc: [], attachments: [] }
+        await window.api.drafts.save({ ...base, to: [], subject: '', html: '<p>Hallo Jana, wegen Samstag: Ich bringe den Beamer mit, das Kabel fehlt aber noch.</p>', text: 'Hallo Jana, wegen Samstag: Ich bringe den Beamer mit, das Kabel fehlt aber noch.' })
+        await window.api.drafts.save({
+          ...base,
+          to: [{ address: 'rueckforderung-prime@amazon.example' }],
+          subject: 'Erstattung der Prime-Beiträge, Kundennummer 302-4471185',
+          html: '<p>Guten Tag,</p><p>hiermit beantrage ich die Erstattung der zu viel gezahlten Prime-Beiträge.</p>',
+          text: 'Guten Tag, hiermit beantrage ich die Erstattung der zu viel gezahlten Prime-Beiträge.',
+          attachments: [{ filename: 'Kontoauszüge_Prime_2023-2026.pdf', content: btoa('x'.repeat(3000)), contentType: 'application/pdf' }]
+        })
+      })
+    )
+    await railButton(`Test · ${TIM}`).click()
+    await folderItem('Entwürfe').click()
+    // Was clearFolder am Server entfernt hat, erfaehrt die App erst beim naechsten Abruf.
+    await page.evaluate(() => window.api.sync.refresh())
+    await until(async () => (await rowBySubject('Erstattung der Prime').count()) === 1, 'Entwurf fehlt in der Liste')
+    await rowBySubject('Erstattung der Prime').click()
+    await page.getByText(/^Entwurf, noch nicht gesendet/).waitFor()
+    await sleep(600)
+    await freshShot('port-entwurf')
+    await railButton('Alle Konten').click()
+    await folderItem('Posteingang').click()
+    await clearFolder(TIM, 'Drafts')
+    // Sonst kennt die App die beiden noch und spaetere Suchen faenden sie.
+    await page.evaluate(() => window.api.accounts.list().then((a) => window.api.sync.refresh(a[0].id, 'Drafts')))
+  } finally {
+    await still.evaluate((el) => el.remove())
+    await page.evaluate((theme) => window.api.settings.update({ theme }), before.theme)
   }
 }
 
@@ -611,6 +793,46 @@ const railButton = (name) => page.getByRole('navigation', { name: 'Konten' }).ge
 const searchBox = () => page.getByRole('combobox', { name: 'Nachrichten durchsuchen' })
 const listSplitter = () => page.getByRole('separator', { name: /^(Breite|Höhe) der Liste$/ })
 const toast = () => page.locator('.toast')
+/** Das Briefchen am Zeiger beim Ziehen; es ist nur Zierde (aria-hidden), darum ueber seine Klasse. */
+const dragToken = () => page.locator('[data-drag-token]')
+/** Wohin das Briefchen am Zeiger gerade will: der Zeiger, auf den es ausgerichtet ist (ohne den Nachlauf). */
+async function tokenAt() {
+  const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec((await dragToken().getAttribute('style')) ?? '')
+  return m ? { x: Number(m[1]) - 12, y: Number(m[2]) - 10 } : null
+}
+/**
+ * Von Playwrights schnellen Schritten kommt beim Ziehen nicht jeder als
+ * dragover an, oft auch der letzte nicht (beobachtet: das Briefchen blieb auf
+ * halbem Weg). Eine echte Maus meldet sich beim Stillhalten weiter, hier tut
+ * das ein zweiter Zug nach einer kurzen Pause.
+ */
+async function holdStill(x, y) {
+  await sleep(80)
+  await page.mouse.move(x, y)
+}
+const near = (a, b) => Boolean(a && Math.abs(a.x - b.x) < 2 && Math.abs(a.y - b.y) < 2)
+/**
+ * Merkt sich im Fenster, ob ein fliegendes Briefchen erscheint; vor der Aktion
+ * aufrufen. Das Ergebnis fragt die gelieferte Funktion ab - der Flug ist nach
+ * gut einer halben Sekunde vorbei, zu kurz fuers Nachsehen danach.
+ */
+async function watchTokenFlight() {
+  await page.evaluate(() => {
+    // Was das erste Briefchen als Zahl traegt: "1" ohne Zahl, null solange keins flog.
+    const seen = () => {
+      const token = document.querySelector('.lv-env-fly')
+      return token ? (token.querySelector('.lv-env-cnt')?.textContent ?? '1') : null
+    }
+    window.__tokenFlew = seen()
+    const watch = new MutationObserver(() => {
+      window.__tokenFlew = seen()
+      if (window.__tokenFlew) watch.disconnect()
+    })
+    watch.observe(document.body, { childList: true, subtree: true })
+    setTimeout(() => watch.disconnect(), 5000)
+  })
+  return () => until(() => page.evaluate(() => window.__tokenFlew), 'kein Briefchen', 3000).catch(() => false)
+}
 /** Leiste, Knoepfe und Menues des Lesebereichs, ueber Rolle und Namen. */
 const toolbar = () => page.getByRole('toolbar', { name: 'Aktionen' })
 const barButton = (name) => toolbar().getByRole('button', { name, exact: true })
@@ -624,15 +846,21 @@ async function search(text) {
   await sleep(700)
 }
 
+const composeOpen = () => page.locator('.compose-dialog:visible')
+const sendButton = () => composeOpen().getByRole('button', { name: 'Senden', exact: true })
+/** Eine fertige Adresse steht als Marke im Feld, mit einem Knopf zum Entfernen. */
+const recipientChip = (address) => composeOpen().getByRole('button', { name: `${address} entfernen` })
+const windowBar = () => page.getByRole('navigation', { name: 'Offene Fenster' })
+
 async function openComposer() {
   await railButton('Neue Nachricht').click()
-  await page.waitForSelector('.compose-dialog')
+  await page.waitForSelector('.compose-dialog:visible')
 }
 
 async function fillComposer({ to, subject, body }) {
   await page.fill('#compose-to', to)
   await page.fill('#compose-subject', subject)
-  await page.click('.compose-editor')
+  await page.click('.compose-editor:visible')
   await page.keyboard.press('Control+Home')
   await page.keyboard.type(body)
 }
@@ -865,11 +1093,11 @@ async function main() {
   await check('Undo Send: zurueckholen verhindert den Versand', async () => {
     await openComposer()
     await fillComposer({ to: ANNA, subject: 'Undo-Test', body: 'Das soll nie ankommen.' })
-    await page.click('.compose-dialog .btn-primary')
+    await sendButton().click()
     await toast().locator('.toast-action', { hasText: 'Rückgängig' }).click()
     await page.waitForSelector('.compose-dialog')
     expect((await page.inputValue('#compose-subject')) === 'Undo-Test', 'Betreff ging beim Zurueckholen verloren')
-    expect((await page.inputValue('#compose-to')).includes(ANNA), 'Empfaenger ging verloren')
+    expect((await recipientChip(ANNA).count()) === 1, 'Empfaenger ging verloren')
     expect((await page.locator('.compose-editor').innerText()).includes('Das soll nie ankommen.'), 'Text ging verloren')
     await page.keyboard.press('Escape')
     await sleep(4500)
@@ -881,7 +1109,7 @@ async function main() {
   await check('Undo Send: ohne Eingreifen geht die Mail nach der Frist raus', async () => {
     await openComposer()
     await fillComposer({ to: ANNA, subject: 'Frist-Test', body: 'Das soll ankommen.' })
-    await page.click('.compose-dialog .btn-primary')
+    await sendButton().click()
     await toast().waitFor()
     expect(!(await subjects(ANNA)).some((m) => m.subject === 'Frist-Test'), 'Nachricht ging vor Ablauf der Frist raus')
     await until(async () => (await subjects(ANNA)).some((m) => m.subject === 'Frist-Test'), 'Nachricht kam nie an')
@@ -892,7 +1120,7 @@ async function main() {
     await page.evaluate(() => window.api.settings.update({ undoSendSec: 0 }))
     await openComposer()
     await fillComposer({ to: ANNA, subject: 'Sofort-Test', body: 'Ohne Frist.' })
-    await page.click('.compose-dialog .btn-primary')
+    await sendButton().click()
     await until(async () => (await toast().textContent().catch(() => '')).includes('Gesendet'), 'Meldung "Gesendet" fehlt')
     expect((await subjects(ANNA)).some((m) => m.subject === 'Sofort-Test'), 'Nachricht kam nicht an')
     await page.evaluate(() => window.api.settings.update({ undoSendSec: 3 }))
@@ -901,9 +1129,8 @@ async function main() {
   await check('Send Later: geplante Nachricht wartet im Ausgang, "Jetzt senden" schickt sie', async () => {
     await openComposer()
     await fillComposer({ to: ANNA, subject: 'Geplant-Test', body: 'Spaeter.' })
-    const select = page.locator('.compose-dialog select[aria-label="Spaeter senden"]')
-    const value = await select.locator('option').nth(1).getAttribute('value')
-    await select.selectOption(value)
+    await composeOpen().getByRole('button', { name: 'Später senden' }).click()
+    await composeOpen().getByRole('menuitem', { name: /^In einer Stunde/ }).click()
     await until(async () => (await toast().textContent().catch(() => '')).includes('Geplant'), 'Meldung "Geplant" fehlt')
     const outbox = await page.evaluate(() => window.api.outbox.list())
     expect(outbox.length === 1 && outbox[0].kind === 'scheduled', `Ausgang: ${JSON.stringify(outbox)}`)
@@ -951,10 +1178,239 @@ async function main() {
     await page.locator('.account-row', { hasText: 'Bearbeiten-Test' }).locator('button', { hasText: 'Bearbeiten' }).click()
     await page.waitForSelector('.compose-dialog')
     expect((await page.locator('.compose-editor').innerText()).includes('Inhalt bleibt'), 'Text fehlt')
-    expect((await page.inputValue('#compose-bcc')).includes('blind@test.local'), 'Blindkopie fehlt')
-    expect((await page.locator('.compose-attachments .chip').count()) === 1, 'Anhang fehlt')
+    expect((await recipientChip('blind@test.local').count()) === 1, 'Blindkopie fehlt')
+    expect((await composeOpen().getByRole('button', { name: 'a.txt entfernen' }).count()) === 1, 'Anhang fehlt')
     expect((await page.evaluate(() => window.api.outbox.list())).length === 0, 'Eintrag liegt weiter im Ausgang')
     await page.keyboard.press('Escape')
+  })
+
+  console.log('Entwuerfe')
+  const draftsOf = () => folderMails(TIM, 'Drafts')
+
+  await check('Entwurf: Speichern legt eine Fassung ab und ersetzt sie beim naechsten Mal', async () => {
+    await clearFolder(TIM, 'Drafts')
+    const trashBefore = (await subjects(TIM, 'Trash')).length
+    await openComposer()
+    await fillComposer({ to: ANNA, subject: 'Entwurf-Test', body: 'Erste Fassung' })
+    await composeOpen().getByRole('button', { name: 'Kopie, Blindkopie' }).click()
+    await page.fill('#compose-bcc', 'blind@test.local')
+    await composeOpen().getByRole('button', { name: 'Als Entwurf speichern' }).click()
+    await until(async () => {
+      const d = await draftsOf()
+      return d.length === 1 && d[0].draft && d[0].source.includes('Erste Fassung')
+    }, 'erste Fassung liegt nicht in Entwuerfe')
+    expect((await draftsOf())[0].source.includes('blind@test.local'), 'Blindkopie fehlt im Entwurf')
+    await page.getByRole('status').filter({ hasText: 'Entwurf gespeichert' }).waitFor()
+
+    await page.click('.compose-editor:visible')
+    await page.keyboard.press('Control+End')
+    await page.keyboard.type(' und zweite')
+    await composeOpen().getByRole('button', { name: 'Als Entwurf speichern' }).click()
+    await until(async () => {
+      const d = await draftsOf()
+      return d.length === 1 && d[0].source.includes('und zweite')
+    }, 'zweite Fassung hat die erste nicht ersetzt')
+    expect((await subjects(TIM, 'Trash')).length === trashBefore, 'alte Fassung landete im Papierkorb')
+
+    await page.keyboard.press('Escape')
+    await until(async () => (await composeOpen().count()) === 0, 'Esc schliesst das Fenster nicht')
+    await sleep(800)
+    expect((await draftsOf()).length === 1, 'Esc ohne Aenderung hat noch eine Fassung angelegt')
+  })
+
+  await check('Entwurf: Klick daneben legt das Fenster in die Leiste und sichert es', async () => {
+    await clearFolder(TIM, 'Drafts')
+    await openComposer()
+    await fillComposer({ to: ANNA, subject: 'Leiste-Test', body: 'Bleibt da' })
+    await page.mouse.click(8, 450)
+    await until(async () => (await composeOpen().count()) === 0, 'Fenster ist noch offen')
+    const tab = windowBar().getByRole('button', { name: 'Leiste-Test', exact: true })
+    await tab.waitFor()
+    await until(async () => (await draftsOf()).some((d) => d.subject === 'Leiste-Test'), 'Minimieren hat nicht gespeichert')
+    // Waehrend es in der Leiste liegt, gehen die Tastenkuerzel der Liste.
+    expect((await page.locator('#compose-to').count()) === 0, 'feste id haengt am versteckten Fenster')
+
+    await tab.click()
+    await composeOpen().waitFor()
+    expect((await page.locator('.compose-editor:visible').innerText()).includes('Bleibt da'), 'Text ging in der Leiste verloren')
+    await page.keyboard.press('Escape')
+    await until(async () => (await windowBar().count()) === 0, 'Leiste bleibt nach dem Schliessen stehen')
+    expect((await draftsOf()).length === 1, 'Schliessen ohne Aenderung legte eine zweite Fassung an')
+  })
+
+  await check('Entwurf: zwei Fenster gleichzeitig, das x am Reiter schliesst und sichert', async () => {
+    await clearFolder(TIM, 'Drafts')
+    await openComposer()
+    await fillComposer({ to: ANNA, subject: 'Erstes Fenster', body: 'eins' })
+    await page.mouse.click(8, 450)
+    await openComposer()
+    await fillComposer({ to: ANNA, subject: 'Zweites Fenster', body: 'zwei' })
+    await page.mouse.click(8, 450)
+    await until(async () => (await windowBar().getByRole('button', { name: /Fenster$/ }).count()) === 2, 'zwei Reiter fehlen')
+    await windowBar().getByRole('group', { name: 'Erstes Fenster' }).getByRole('button', { name: 'Schließen, Entwurf bleibt' }).click()
+    await until(async () => (await windowBar().getByRole('button', { name: /Fenster$/ }).count()) === 1, 'Reiter bleibt nach x')
+    await until(async () => (await draftsOf()).length === 2, 'nicht beide Entwuerfe gespeichert')
+    await windowBar().getByRole('group', { name: 'Zweites Fenster' }).getByRole('button', { name: 'Schließen, Entwurf bleibt' }).click()
+    await until(async () => (await windowBar().count()) === 0, 'Leiste bleibt stehen')
+  })
+
+  await check('Entwurf: eine unveraenderte Antwort hinterlaesst keinen', async () => {
+    await clearFolder(TIM, 'Drafts')
+    await rowBySubject('Bitte um Rueckruf').first().click()
+    await barButton('Antworten').click()
+    await composeOpen().waitFor()
+    await page.keyboard.press('Escape')
+    await until(async () => (await composeOpen().count()) === 0, 'Esc schliesst die Antwort nicht')
+    await sleep(1000)
+    expect((await draftsOf()).length === 0, 'unveraenderte Antwort wurde gespeichert')
+  })
+
+  await check('Entwurf: aus Entwürfe weiterschreiben und senden raeumt ihn weg', async () => {
+    await clearFolder(TIM, 'Drafts')
+    await page.evaluate(
+      ([to]) =>
+        window.api.accounts.list().then((accounts) =>
+          window.api.drafts.save({ accountId: accounts[0].id, to: [{ address: to }], cc: [], bcc: [], subject: 'Weiter-Test', html: '<p>Angefangen</p>', text: 'Angefangen', attachments: [] })
+        ),
+      [ANNA]
+    )
+    await railButton(`Test · ${TIM}`).click()
+    await folderItem('Entwürfe').click()
+    await until(async () => (await rowBySubject('Weiter-Test').count()) === 1, 'Entwurf erscheint nicht in Entwürfe')
+    const draftRow = rowBySubject('Weiter-Test')
+    expect((await draftRow.locator('.lv-r-nm').textContent()) === `An${ANNA}`, `Zeile zeigt nicht "An" und den Empfänger: ${await draftRow.locator('.lv-r-nm').textContent()}`)
+    expect((await draftRow.getByRole('button', { name: /als (un)?gelesen markieren/i }).count()) === 0, 'Entwurf hat einen Punkt für ungelesen')
+    await draftRow.click()
+    await page.getByText(/^Entwurf, noch nicht gesendet · gespeichert heute, \d\d:\d\d$/).waitFor()
+    expect((await barButton('Archivieren').count()) === 0 && (await barButton('In den Papierkorb').count()) === 1, 'Leiste eines Entwurfs hat mehr als den Papierkorb')
+    await barButton('Weiterschreiben').click()
+    await composeOpen().waitFor()
+    expect((await page.inputValue('#compose-subject')) === 'Weiter-Test', 'Betreff fehlt')
+    expect((await page.locator('.compose-editor:visible').innerText()).includes('Angefangen'), 'Text fehlt')
+    await page.click('.compose-editor:visible')
+    await page.keyboard.press('Control+End')
+    await page.keyboard.type(' und fertig')
+    await page.evaluate(() => window.api.settings.update({ undoSendSec: 0 }))
+    await sendButton().click()
+    await until(async () => (await subjects(ANNA)).some((m) => m.subject === 'Weiter-Test'), 'Mail kam nicht an')
+    await until(async () => (await draftsOf()).length === 0, 'Entwurf blieb nach dem Senden liegen')
+    await page.evaluate(() => window.api.settings.update({ undoSendSec: 3 }))
+  })
+
+  await check('Entwurf: derselbe Entwurf zweimal geoeffnet bleibt ein Fenster', async () => {
+    await clearFolder(TIM, 'Drafts')
+    await openComposer()
+    await fillComposer({ to: ANNA, subject: 'Einmal-Test', body: 'nur ein Fenster' })
+    await composeOpen().getByRole('button', { name: 'Als Entwurf speichern' }).click()
+    await until(async () => (await draftsOf()).length === 1, 'nicht gespeichert')
+    await page.click('.compose-editor:visible')
+    await page.keyboard.type(' mehr')
+    await page.mouse.click(8, 450)
+    await until(async () => (await draftsOf()).some((d) => d.source.includes('mehr')), 'Minimieren hat nicht gespeichert')
+    await railButton(`Test · ${TIM}`).click()
+    await folderItem('Entwürfe').click()
+    await page.evaluate(() => window.api.accounts.list().then((a) => window.api.sync.refresh(a[0].id, 'Drafts')))
+    await until(async () => (await rowBySubject('Einmal-Test').count()) === 1, 'Entwurf fehlt in der Liste')
+    await rowBySubject('Einmal-Test').dblclick()
+    await composeOpen().waitFor()
+    expect((await windowBar().getByRole('group').count()) === 1, 'derselbe Entwurf ging ein zweites Mal auf')
+    await page.keyboard.press('Escape')
+    await until(async () => (await windowBar().count()) === 0, 'Leiste bleibt stehen')
+    expect((await draftsOf()).length === 1, 'zwei Entwuerfe auf dem Server')
+  })
+
+  await check('Entwurf: Verwerfen legt ihn in den Papierkorb', async () => {
+    await clearFolder(TIM, 'Drafts')
+    await openComposer()
+    await fillComposer({ to: ANNA, subject: 'Verwerfen-Test', body: 'weg damit' })
+    await composeOpen().getByRole('button', { name: 'Als Entwurf speichern' }).click()
+    await until(async () => (await draftsOf()).length === 1, 'nicht gespeichert')
+    await composeOpen().getByRole('button', { name: 'Verwerfen' }).click()
+    await until(async () => (await composeOpen().count()) === 0, 'Verwerfen schliesst nicht')
+    await until(async () => (await draftsOf()).length === 0, 'Entwurf blieb in Entwuerfe')
+    await until(async () => (await subjects(TIM, 'Trash')).some((m) => m.subject === 'Verwerfen-Test'), 'Entwurf fehlt im Papierkorb')
+  })
+
+  await check('Entwurf: scheitert das Speichern, bleibt das Fenster mit dem Grund offen, ein zweiter Klick auf X schliesst', async () => {
+    await clearFolder(TIM, 'Drafts')
+    await openComposer()
+    await fillComposer({ to: ANNA, subject: 'Offline-Test', body: 'Bleibt im Fenster' })
+    cutImap()
+    try {
+      await composeOpen().getByRole('button', { name: 'Schließen', exact: true }).click()
+      const alert = composeOpen().getByRole('alert')
+      await alert.waitFor({ timeout: 30000 })
+      const text = await alert.textContent()
+      expect(text.startsWith('Der Entwurf ließ sich nicht speichern.'), `Meldung: ${text}`)
+      expect(text.includes('Test ist offline.'), `Grund fehlt oder stimmt nicht: ${text}`)
+      expect(text.includes('Dein Text bleibt in diesem Fenster.'), `Hinweis fehlt: ${text}`)
+      expect(!/[A-Z]{4,}|Error|invoking/.test(text), `roher Fehlercode in der Meldung: ${text}`)
+      expect((await composeOpen().count()) === 1, 'Fenster ging trotz Fehler zu')
+      await composeOpen().getByRole('status').filter({ hasText: 'Nicht gespeichert' }).waitFor()
+      await composeOpen().getByRole('tooltip').filter({ hasText: 'Noch einmal klicken schließt ohne Speichern' }).waitFor()
+      await composeOpen().getByRole('button', { name: 'Ohne Speichern schließen' }).click()
+      await until(async () => (await composeOpen().count()) === 0, 'zweiter Klick schliesst nicht')
+      await until(async () => (await windowBar().count()) === 0, 'Reiter bleibt nach dem Schliessen')
+    } finally {
+      imapProxy.down = false
+    }
+    await until(
+      () => page.evaluate(() => window.api.accounts.statuses().then((s) => s.every((x) => x.phase === 'idle'))),
+      'Konto kommt nach der Unterbrechung nicht zur Ruhe',
+      90000
+    )
+    expect((await draftsOf()).length === 0, 'ohne Speichern geschlossen, trotzdem liegt ein Entwurf da')
+  })
+
+  await check('Fenster: Bilder zum Vergleich mit dem Entwurf', async () => {
+    await windowShots()
+  })
+
+  await check('Mail-Fenster: Doppelklick oeffnet die Mail, Klick daneben legt sie in die Leiste, Antworten nimmt ihren Platz, Esc schliesst', async () => {
+    const row = rowBySubject('Bitte um Rueckruf').first()
+    await row.dblclick()
+    const mailWindow = page.getByRole('dialog', { name: 'Bitte um Rueckruf' })
+    await mailWindow.waitFor()
+    await mailWindow.getByRole('heading', { name: 'Bitte um Rueckruf' }).waitFor()
+    expect((await row.getAttribute('aria-selected')) === 'true', 'Doppelklick waehlt die Zeile nicht aus')
+
+    await page.mouse.click(8, 450)
+    await until(async () => (await mailWindow.count()) === 0, 'Klick daneben legt das Fenster nicht weg')
+    const tabGroup = windowBar().getByRole('group', { name: 'Bitte um Rueckruf' })
+    const tab = tabGroup.getByRole('button', { name: 'Bitte um Rueckruf', exact: true })
+    expect((await tab.getAttribute('title')) === 'Mail: Bitte um Rueckruf', `Tooltip am Reiter: ${await tab.getAttribute('title')}`)
+    expect((await tabGroup.getByRole('button', { name: 'Schließen', exact: true }).count()) === 1, 'x am Reiter heisst nicht "Schließen"')
+
+    await tab.click()
+    await mailWindow.waitFor()
+    expect((await tab.getAttribute('aria-pressed')) === 'true', 'Reiter ist nicht als offen markiert')
+    // Antworten zitiert diese Mail; das Verfassen-Fenster nimmt den Platz, die Mail geht in die Leiste.
+    await mailWindow.getByRole('button', { name: 'Antworten', exact: true }).click()
+    await composeOpen().waitFor()
+    expect((await page.locator('.compose-editor:visible').innerText()).includes('Ruf mich bitte an.'), 'Antwort zitiert nicht die Mail aus dem Fenster')
+    await until(async () => (await mailWindow.count()) === 0 && (await tab.getAttribute('aria-pressed')) === 'false', 'Mail-Fenster bleibt aufgeklappt')
+    await page.keyboard.press('Escape')
+    await until(async () => (await composeOpen().count()) === 0, 'Antwort schliesst nicht')
+
+    await tab.click()
+    await mailWindow.waitFor()
+    await page.keyboard.press('Escape')
+    await until(async () => (await windowBar().count()) === 0, 'Esc schliesst das Mail-Fenster nicht')
+  })
+
+  await check('Senden: Blindkopie steht nicht im Kopf der verschickten Mail', async () => {
+    await page.evaluate(() => window.api.settings.update({ undoSendSec: 0 }))
+    await page.evaluate(
+      ([to]) =>
+        window.api.accounts.list().then((accounts) =>
+          window.api.mail.send({ accountId: accounts[0].id, to: [{ address: to }], cc: [], bcc: [{ address: 'geheim@test.local' }], subject: 'Bcc-Test', html: '<p>x</p>', text: 'x', attachments: [] })
+        ),
+      [ANNA]
+    )
+    await page.evaluate(() => window.api.settings.update({ undoSendSec: 3 }))
+    const got = await until(async () => (await folderMails(ANNA, 'INBOX')).find((m) => m.subject === 'Bcc-Test'), 'Mail kam nicht an')
+    expect(!/^Bcc:/im.test(got.source.split('\r\n\r\n')[0]), 'Bcc-Zeile ging an den Empfaenger mit')
+    await until(async () => (await folderMails(TIM, 'Sent')).some((m) => m.subject === 'Bcc-Test' && m.source.includes('geheim@test.local')), 'Gesendet-Kopie ohne Blindkopie')
   })
 
   console.log('Zurueckstellen')
@@ -1034,7 +1490,8 @@ async function main() {
     await page.locator('.dialog-foot .btn-primary', { hasText: 'Fertig' }).click()
 
     await openComposer()
-    await page.locator('.compose-dialog select[aria-label="Vorlage einsetzen"]').selectOption({ label: 'Terminzusage' })
+    await composeOpen().getByRole('button', { name: 'Vorlage' }).click()
+    await composeOpen().getByRole('menuitem', { name: 'Terminzusage' }).click()
     const text = await page.locator('.compose-editor').innerText()
     expect(text.includes('der Termin passt <gut>.'), `Vorlagentext fehlt oder wurde als HTML gelesen: ${JSON.stringify(text)}`)
     expect(text.indexOf('Hallo') < text.indexOf('--'), 'Vorlage steht nicht vor der Signatur')
@@ -1046,7 +1503,8 @@ async function main() {
   await check('Vorlagen: vorhandener Betreff bleibt stehen', async () => {
     await openComposer()
     await page.fill('#compose-subject', 'Mein Betreff')
-    await page.locator('.compose-dialog select[aria-label="Vorlage einsetzen"]').selectOption({ label: 'Terminzusage' })
+    await composeOpen().getByRole('button', { name: 'Vorlage' }).click()
+    await composeOpen().getByRole('menuitem', { name: 'Terminzusage' }).click()
     expect((await page.inputValue('#compose-subject')) === 'Mein Betreff', 'Betreff wurde ueberschrieben')
     await page.keyboard.press('Escape')
   })
@@ -1758,26 +2216,34 @@ async function main() {
     await page.mouse.down()
     await page.mouse.move(from.x + 80, from.y + from.height / 2, { steps: 3 })
     await page.mouse.move(ownBox.x + 40, ownBox.y + ownBox.height / 2, { steps: 8 })
-    // Unterwegs: die Zeile tritt zurueck, Sammelansichten nehmen nichts und sind gedimmt, der Geist folgt.
+    await holdStill(ownBox.x + 40, ownBox.y + ownBox.height / 2)
+    // Unterwegs: die Zeile tritt zurueck, Sammelansichten nehmen nichts und sind gedimmt, das Briefchen folgt.
     await until(async () => (await row.getAttribute('data-lifted')) !== null, 'die gezogene Zeile tritt nicht zurueck', 3000)
     expect((await folderItem('Markiert').getAttribute('data-dim')) !== null, '„Markiert“ ist beim Ziehen nicht gedimmt')
-    const ghost = page.locator('.lv-ghost')
-    expect((await ghost.count()) === 1 && (await ghost.textContent()).includes('Zieh-Test'), 'kein Ziehgeist mit dem Betreff')
+    const token = dragToken()
+    expect((await token.count()) === 1, 'kein Briefchen am Zeiger')
+    expect((await token.locator('.lv-env-cnt').count()) === 0, 'eine einzelne Mail zeigt eine Zahl am Briefchen')
+    await until(async () => near(await tokenAt(), { x: ownBox.x + 40, y: ownBox.y + ownBox.height / 2 }), 'das Briefchen folgt dem Zeiger nicht', 3000)
     // Verweilen: „Eigene Ordner“ klappt von selbst auf.
     await until(async () => (await own.getAttribute('aria-expanded')) === 'true', '„Eigene Ordner“ geht beim Verweilen nicht auf', 3000)
     const target = folderItem('Arbeit')
     await target.waitFor()
     const targetBox = await target.boundingBox()
     await page.mouse.move(targetBox.x + 40, targetBox.y + targetBox.height / 2, { steps: 6 })
+    await holdStill(targetBox.x + 40, targetBox.y + targetBox.height / 2)
     expect((await target.getAttribute('data-drop')) === 'ok', 'Arbeit zeigt sich nicht als Ziel')
+    await until(async () => near(await tokenAt(), { x: targetBox.x + 40, y: targetBox.y + targetBox.height / 2 }), 'das Briefchen bleibt hinter dem Zeiger zurueck', 3000)
     await shot('ziehen-gueltig')
+    const sank = await watchTokenFlight()
     await page.mouse.up()
+    expect(await sank(), 'das Briefchen gleitet beim Ablegen nicht in den Ordner')
 
     await until(async () => (await subjects(TIM, 'Arbeit')).some((m) => m.subject === 'Zieh-Test'), 'Mail kam nicht in Arbeit an')
     expect(!(await subjects(TIM)).some((m) => m.subject === 'Zieh-Test'), 'Mail liegt weiter im Posteingang')
     await until(async () => (await row.count()) === 0, 'Zeile steht weiter in der Liste')
     expect((await target.getAttribute('data-drop')) === null, 'Ziel bleibt nach dem Ablegen markiert')
-    expect((await page.locator('.lv-ghost').count()) === 0, 'der Ziehgeist bleibt stehen')
+    expect((await dragToken().count()) === 0, 'das Briefchen bleibt am Zeiger haengen')
+    await until(async () => (await page.locator('.lv-env-fly').count()) === 0, 'das Briefchen bleibt nach dem Ablegen stehen', 3000)
 
     // Die Meldung bietet Rückgängig als echten Knopf; der holt die Mail zurueck.
     const undo = toast().getByRole('button', { name: 'Rückgängig' })
@@ -1788,6 +2254,128 @@ async function main() {
     await until(async () => (await subjects(TIM)).some((m) => m.subject === 'Zieh-Test'), 'Rückgängig holt die Mail nicht in den Posteingang')
     expect(!(await subjects(TIM, 'Arbeit')).some((m) => m.subject === 'Zieh-Test'), 'die Mail liegt nach Rückgängig weiter in Arbeit')
     await until(async () => (await rowBySubject('Zieh-Test').count()) === 1, 'Zeile kommt nach Rückgängig nicht zurück', 20000)
+  })
+
+  await check('Liste: der Papierkorb beim Hovern loescht die Zeile, Rueckgaengig holt sie zurueck', async () => {
+    const client = await imap(TIM)
+    try {
+      await client.append('INBOX', await raw(mail('werbung@shop.example', TIM, 'Papierkorb-Hover-Test', { text: 'Weg damit.' })))
+      await client.append('Trash', await raw(mail('alt@shop.example', TIM, 'Liegt schon im Papierkorb', { text: 'alt' })), ['\\Seen'])
+    } finally {
+      await client.logout().catch(() => {})
+    }
+    await page.evaluate(() => window.api.sync.refresh())
+    const row = rowBySubject('Papierkorb-Hover-Test')
+    await until(async () => (await row.count()) === 1, 'neue Mail fehlt in der Liste')
+    const del = row.getByRole('button', { name: 'In den Papierkorb' })
+    const shown = () => del.evaluate((el) => getComputedStyle(el).transform === 'none')
+    // Ueber der Mitte der Zeile bleibt er drin, erst am rechten Rand faehrt er heraus.
+    await row.hover()
+    await sleep(400)
+    expect(!(await shown()), 'Papierkorb faehrt schon beim Hovern der Mitte heraus')
+    const box = await row.boundingBox()
+    await page.mouse.move(box.x + box.width - 20, box.y + box.height / 2)
+    await until(shown, 'Papierkorb faehrt am rechten Rand nicht heraus')
+    await sleep(300)
+    await freshShot('port-papierkorb')
+    // Ein Briefchen fliegt zum Papierkorb und ist danach wieder weg; die Zeile klappt zu, bis die Daten sie entfernen.
+    const flew = await watchTokenFlight()
+    await del.click()
+    expect(await flew(), 'kein Briefchen fliegt zum Papierkorb')
+    await until(async () => (await page.locator('.lv-env-fly').count()) === 0, 'das Briefchen bleibt nach dem Flug stehen', 3000)
+    await until(async () => (await row.count()) === 0, 'Zeile bleibt stehen')
+    await until(async () => (await subjects(TIM, 'Trash')).some((m) => m.subject === 'Papierkorb-Hover-Test'), 'Mail fehlt im Papierkorb')
+    await toast().locator('.toast-action', { hasText: 'Rückgängig' }).click()
+    await until(async () => (await subjects(TIM)).some((m) => m.subject === 'Papierkorb-Hover-Test'), 'Rueckgaengig holt sie nicht zurueck')
+
+    // Im Papierkorb selbst gibt es den Knopf nicht.
+    await railButton(`Test · ${TIM}`).click()
+    await folderItem('Papierkorb').click()
+    await page.evaluate(() => window.api.accounts.list().then((a) => window.api.sync.refresh(a[0].id, 'Trash')))
+    await until(async () => (await rowBySubject('Liegt schon im Papierkorb').count()) === 1, 'Papierkorb wird nicht gezeigt')
+    await until(async () => (await messageList().getByRole('button', { name: 'In den Papierkorb' }).count()) === 0, 'Papierkorb-Knopf im Papierkorb')
+  })
+
+  await check('Liste: Entf, Rechtsklick und Leiste schicken ein Briefchen zum Papierkorb, mehrere mit Zahl', async () => {
+    const names = ['Flug-Entf', 'Flug-Menue', 'Flug-Leiste', 'Flug-Paar-1', 'Flug-Paar-2', 'Flug-Ruhig']
+    const client = await imap(TIM)
+    try {
+      for (const name of names) await client.append('INBOX', await raw(mail('flug@shop.example', TIM, name, { text: 'Weg.' })))
+    } finally {
+      await client.logout().catch(() => {})
+    }
+    await page.evaluate(() => window.api.sync.refresh())
+    for (const name of names) await until(async () => (await rowBySubject(name).count()) === 1, `${name} fehlt in der Liste`)
+    const gone = async (name) => {
+      await until(async () => (await rowBySubject(name).count()) === 0, `${name} bleibt in der Liste`)
+      await until(async () => (await subjects(TIM, 'Trash')).some((m) => m.subject === name), `${name} fehlt im Papierkorb`)
+    }
+
+    await rowBySubject('Flug-Entf').click()
+    let flew = await watchTokenFlight()
+    await page.keyboard.press('Delete')
+    expect((await flew()) === '1', 'Entf schickt kein Briefchen')
+    await gone('Flug-Entf')
+
+    await rowBySubject('Flug-Menue').click({ button: 'right' })
+    flew = await watchTokenFlight()
+    await page.getByRole('menuitem', { name: 'In den Papierkorb' }).click()
+    expect((await flew()) === '1', 'der Rechtsklick schickt kein Briefchen')
+    await gone('Flug-Menue')
+
+    await rowBySubject('Flug-Leiste').click()
+    flew = await watchTokenFlight()
+    await barButton('In den Papierkorb').click()
+    expect((await flew()) === '1', 'die Leiste schickt kein Briefchen')
+    await gone('Flug-Leiste')
+
+    // Zwei Zeilen zusammen: ein Briefchen mit der Zahl 2.
+    await rowBySubject('Flug-Paar-1').click()
+    await rowBySubject('Flug-Paar-2').click({ modifiers: ['Control'] })
+    flew = await watchTokenFlight()
+    await page.keyboard.press('Delete')
+    const count = await flew()
+    expect(count === '2', `zwei Mails fliegen nicht als ein Briefchen mit 2 (${count})`)
+    await gone('Flug-Paar-1')
+    await gone('Flug-Paar-2')
+
+    // Weniger Bewegung: kein Flug, die Zeile geht trotzdem.
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    try {
+      await rowBySubject('Flug-Ruhig').click()
+      flew = await watchTokenFlight()
+      await page.keyboard.press('Delete')
+      expect((await flew()) === false, 'mit weniger Bewegung fliegt trotzdem ein Briefchen')
+      await gone('Flug-Ruhig')
+    } finally {
+      await page.emulateMedia({ reducedMotion: null })
+    }
+  })
+
+  await check('Liste: ist die Kontogruppe zugeklappt, fliegt das Briefchen zu ihrem Kopf', async () => {
+    const client = await imap(TIM)
+    try {
+      await client.append('INBOX', await raw(mail('werbung@shop.example', TIM, 'Zugeklappt-Flug-Test', { text: 'Weg damit.' })))
+    } finally {
+      await client.logout().catch(() => {})
+    }
+    await page.evaluate(() => window.api.sync.refresh())
+    const row = rowBySubject('Zugeklappt-Flug-Test')
+    await until(async () => (await row.count()) === 1, 'neue Mail fehlt in der Liste')
+    const group = () => folderColumn().getByRole('group', { name: 'Test', exact: true }).getByRole('button').first()
+    if ((await group().getAttribute('aria-expanded')) === 'true') await group().click()
+    await until(async () => (await group().getAttribute('aria-expanded')) === 'false', 'die Gruppe klappt nicht zu')
+    try {
+      const box = await row.boundingBox()
+      await page.mouse.move(box.x + box.width - 20, box.y + box.height / 2)
+      await sleep(300)
+      const flew = await watchTokenFlight()
+      await row.getByRole('button', { name: 'In den Papierkorb' }).click()
+      expect(await flew(), 'kein Briefchen, obwohl die Gruppe nur zugeklappt ist')
+      await until(async () => (await row.count()) === 0, 'Zeile bleibt stehen')
+    } finally {
+      await group().click()
+    }
   })
 
   await check('Ziehen: eine Sammelansicht nimmt keine Mails an', async () => {
@@ -1801,10 +2389,14 @@ async function main() {
     await page.mouse.move(from.x + 80, from.y + from.height / 2, { steps: 3 })
     await page.mouse.move(box.x + 40, box.y + box.height / 2, { steps: 8 })
     expect((await flagged.getAttribute('data-drop')) === 'no', '„Markiert“ zeigt sich nicht als ungültiges Ziel')
-    expect((await page.locator('.lv-ghost').getAttribute('data-refused')) !== null, 'der Geist wird über einem ungültigen Ziel nicht grau')
+    expect((await dragToken().getAttribute('data-refused')) !== null, 'das Briefchen wird über einem ungültigen Ziel nicht grau')
     await shot('ziehen-ungueltig')
+    // Losgelassen ueber keinem gueltigen Ziel: das Briefchen fliegt zur Zeile zurueck.
+    const flewBack = await watchTokenFlight()
     await page.mouse.up()
+    expect(await flewBack(), 'das Briefchen fliegt nach dem Abbruch nicht zurueck')
     await sleep(800)
+    expect((await page.locator('.lv-env-drag, .lv-env-fly').count()) === 0, 'nach dem Abbruch bleibt ein Briefchen stehen')
     expect((await subjects(TIM)).some((m) => m.subject === 'Teammeeting'), 'Teammeeting hat den Posteingang verlassen')
   })
 
@@ -1816,7 +2408,7 @@ async function main() {
     await barButton('Antworten').click()
     await page.waitForSelector('.compose-dialog')
     expect((await page.inputValue('#compose-subject')) === 'Re: Bitte um Rueckruf', 'Betreff stimmt nicht')
-    expect((await page.inputValue('#compose-to')).includes('chef@firma.example'), 'Empfaenger fehlt')
+    expect((await recipientChip('chef@firma.example').count()) === 1, 'Empfaenger fehlt')
     expect((await page.locator('.compose-editor').innerText()).includes('Ruf mich bitte an.'), 'Zitat fehlt')
     await page.keyboard.press('Escape')
   })
@@ -1864,8 +2456,22 @@ async function main() {
   })
 
   await shot('08-ende')
+
+  // Zuletzt, weil es die App beendet: ein offenes, ungespeichertes Fenster landet vorher in Entwuerfe.
+  let quit = false
+  await check('Entwurf: Beenden speichert offene Fenster als Entwurf', async () => {
+    await clearFolder(TIM, 'Drafts')
+    await openComposer()
+    await fillComposer({ to: ANNA, subject: 'Beenden-Test', body: 'kurz vor Schluss' })
+    const closed = new Promise((resolve) => app.once('close', resolve))
+    quit = true
+    await app.evaluate(({ app: electronApp }) => electronApp.quit())
+    await closed
+    const saved = await draftsOf()
+    expect(saved.some((d) => d.subject === 'Beenden-Test' && d.source.includes('kurz vor Schluss')), 'Beenden hat den Entwurf nicht gespeichert')
+  })
   proxyServer.close()
-  await app.close()
+  if (!quit) await app.close()
   fs.rmSync(userData, { recursive: true, force: true })
 
   const failed = results.filter((r) => !r.ok)

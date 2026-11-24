@@ -59,6 +59,7 @@ export function AccountRail(props: Props) {
             key={account.id}
             type="button"
             className="lv-tile"
+            data-account-tile={account.id}
             data-state={state}
             aria-pressed={activeAccountId === account.id}
             aria-label={`${account.label} · ${account.email}`}

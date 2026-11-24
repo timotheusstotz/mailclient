@@ -92,7 +92,7 @@ function AttachmentTile({
 }) {
   const { accountId, folder, uid } = message
   const { partId, filename } = attachment
-  const kind = typeOf(filename, attachment.contentType)
+  const kind = fileKind(filename, attachment.contentType)
   return (
     <div className="rv-tile">
       <button
@@ -123,7 +123,7 @@ function AttachmentTile({
 }
 
 /** Kurzes Kuerzel und Farbe fuer Dateien ohne Bildvorschau, z. B. "PDF" auf Rot. */
-function typeOf(filename: string, contentType: string): { label: string; tone: string } {
+export function fileKind(filename: string, contentType: string): { label: string; tone: string } {
   const fromName = /\.([a-z0-9]{1,5})$/i.exec(filename)?.[1]
   const fromType = contentType.split('/')[1]?.split(/[;+]/)[0]
   const label = (fromName || fromType || 'Datei').toUpperCase().slice(0, 4)

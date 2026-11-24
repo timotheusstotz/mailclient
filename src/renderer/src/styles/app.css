@@ -61,6 +61,12 @@
   --sheet-ink: #1a1d23;
   --sheet-line: #e2e5ea;
 
+  /* Fenster (Verfassen, Mail-Fenster): Abdunkelung dahinter, Rand, Schreibmarke, Zitatlinie */
+  --scrim: rgba(20, 26, 38, 0.3);
+  --win-ring: rgba(16, 22, 34, 0.08);
+  --caret: #2f5bd0;
+  --quote-line: #cdd3db;
+
   --sans: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, Inter,
     "Helvetica Neue", Arial, sans-serif;
   --mono: "Cascadia Mono", "SF Mono", "JetBrains Mono", Consolas, monospace;
@@ -112,6 +118,10 @@
   --shadow-cta: inset 0 -1px 0 rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.3),
     0 6px 16px -8px rgba(130, 166, 240, 0.5);
   --sheet-line: #2a303a;
+  --scrim: rgba(6, 8, 12, 0.58);
+  --win-ring: rgba(255, 255, 255, 0.06);
+  --caret: #82a6f0;
+  --quote-line: #3a424e;
 }
 
 * {
@@ -333,11 +343,6 @@ option {
   border: 1px solid var(--line);
 }
 
-.dialog-wide {
-  width: min(920px, 100%);
-  height: min(760px, 100%);
-}
-
 .dialog-head {
   padding: 18px 22px 14px;
   border-bottom: 1px solid var(--line);
@@ -487,150 +492,6 @@ option {
   font-size: inherit;
 }
 
-/* ------------------------------------------------------------ Verfassen */
-
-.compose-fields {
-  border-bottom: 1px solid var(--line);
-}
-
-.compose-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 22px;
-  border-bottom: 1px solid var(--line);
-}
-
-.compose-line label {
-  width: 62px;
-  flex: 0 0 auto;
-  font-size: 12.5px;
-  color: var(--ink-3);
-}
-
-.compose-line input,
-.compose-line select {
-  flex: 1;
-  border: none;
-  background: transparent;
-  outline: none;
-  min-width: 0;
-  font-size: 13.5px;
-}
-
-.compose-editor {
-  flex: 1;
-  overflow-y: auto;
-  padding: 18px 22px;
-  outline: none;
-  font-size: 14px;
-  line-height: 1.6;
-  min-height: 220px;
-}
-
-.compose-editor blockquote {
-  margin: 12px 0;
-  padding-left: 14px;
-  border-left: 2px solid var(--line-strong);
-  color: var(--ink-3);
-}
-
-.compose-attachments {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  padding: 10px 22px;
-  border-top: 1px solid var(--line);
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  font-size: 12px;
-  background: var(--surface-2);
-}
-
-.chip button {
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: var(--ink-3);
-  padding: 0;
-  line-height: 1;
-}
-
-/* --------------------------------------------------- Adressvorschlaege */
-
-.address-box {
-  position: relative;
-  flex: 1;
-  display: flex;
-  min-width: 0;
-}
-
-.address-box input {
-  flex: 1;
-  min-width: 0;
-}
-
-.address-suggestions {
-  position: absolute;
-  top: calc(100% + 3px);
-  left: 0;
-  right: 0;
-  z-index: 40;
-  margin: 0;
-  padding: 4px;
-  list-style: none;
-  max-height: 260px;
-  overflow-y: auto;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow-pop);
-}
-
-.address-suggestions li {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 6px 9px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.address-suggestions li[data-active='true'] {
-  background: var(--selected);
-}
-
-.address-suggestions .name {
-  color: var(--ink);
-  white-space: nowrap;
-}
-
-.address-suggestions .addr {
-  color: var(--ink-3);
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Wem du selbst geschrieben hast, ist der wahrscheinlichere Empfaenger. */
-.address-suggestions .mark {
-  margin-left: auto;
-  flex: 0 0 auto;
-  font-size: 10.5px;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
 /* ------------------------------------------------------- Einstellungen */
 
 .section-title {
@@ -700,17 +561,6 @@ body.resizing iframe {
 
 .dialog-small {
   width: min(400px, 100%);
-}
-
-.compose-schedule {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 22px 0;
-  font-size: 12.5px;
-}
-.compose-schedule .input {
-  width: auto;
 }
 
 .template-body {
@@ -1028,29 +878,4 @@ body.resizing iframe {
   justify-content: flex-end;
   margin-top: 14px;
   flex-wrap: wrap;
-}
-
-/* ------------------------------------------------- Ablegen im Verfassen */
-
-.compose-dialog {
-  position: relative;
-}
-
-/*
-  Liegt ueber dem ganzen Dialog, faengt aber keine Ereignisse ab - sonst
-  meldete das Einblenden selbst ein dragleave, und der Hinweis flackerte.
-*/
-.compose-drop {
-  position: absolute;
-  inset: 8px;
-  z-index: 5;
-  display: grid;
-  place-items: center;
-  border: 2px dashed var(--accent);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--accent-soft) 90%, transparent);
-  color: var(--accent);
-  font-size: 15px;
-  font-weight: 600;
-  pointer-events: none;
 }

@@ -58,6 +58,22 @@ export async function buildRawMessage(
   return { raw: info.message as Buffer, messageId }
 }
 
+/**
+ * Nimmt die Bcc-Zeile aus dem Kopf. Gebaut wird die Nachricht mit ihr, damit
+ * die Kopie in "Gesendet" und ein Entwurf die Blindkopien behalten; beim
+ * Empfaenger darf sie nie ankommen. Die Empfaenger stehen im Umschlag.
+ */
+export function withoutBcc(raw: Buffer): Buffer {
+  const text = raw.toString('latin1')
+  const end = text.indexOf('\r\n\r\n')
+  if (end < 0) return raw
+  const head = text
+    .slice(0, end)
+    .replace(/^Bcc:.*(?:\r\n[ \t].*)*(?:\r\n)?/gim, '')
+    .replace(/(?:\r\n)+$/, '')
+  return Buffer.concat([Buffer.from(head, 'latin1'), raw.subarray(end)])
+}
+
 export async function sendRaw(
   account: Account,
   password: string,
@@ -68,7 +84,7 @@ export async function sendRaw(
   try {
     await transport.sendMail({
       envelope: { from: account.email, to: recipients },
-      raw
+      raw: withoutBcc(raw)
     })
   } finally {
     transport.close()

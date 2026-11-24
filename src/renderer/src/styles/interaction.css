@@ -53,7 +53,6 @@
 .tab,
 .link-btn,
 .toast-action,
-.chip button,
 .domain button,
 .menu-item {
   transition:
@@ -93,7 +92,6 @@
   .btn-icon:active:not(:disabled),
   .lv-dot:active,
   .lv-sf-clear:active,
-  .chip button:active,
   .domain button:active {
     transform: scale(0.94);
   }
@@ -139,12 +137,15 @@
         animation: icon-wobble 460ms var(--ease);
       }
       & svg[data-icon='paperclip'],
+      & svg[data-icon='template'],
       & svg[data-icon='envelope-open'],
       & svg[data-icon='mail-unread'],
       & svg[data-icon='image'] {
         transform: translateY(-2px);
       }
       & svg[data-icon='download'],
+      & svg[data-icon='minimize'],
+      & svg[data-icon='save'],
       & svg[data-icon='archive'] {
         transform: translateY(2px);
       }

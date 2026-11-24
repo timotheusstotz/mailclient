@@ -78,6 +78,8 @@ export function FolderTree(props: FolderTreeProps) {
         icon={roleIcon(folder.role)}
         label={folderLabel(folder.name, folder.role)}
         title={folder.path}
+        // Daran findet ein Briefchen seinen Zielordner; im Menue fliegt keins hin.
+        folderKey={menu ? undefined : `${account.id}|${folder.path}`}
         count={folder.unread > 0 && folder.role !== 'drafts' ? folder.unread : undefined}
         total={folder.role === 'drafts' && folder.total > 0 ? folder.total : undefined}
         current={isFolder(account.id, folder.path)}
@@ -151,7 +153,7 @@ export function FolderTree(props: FolderTreeProps) {
         const unread = props.unreadByAccount.get(account.id) ?? 0
         const rows = ownOpen ? folderRows(own, (f) => props.isOpen(`folder:${account.id}|${f.path}`, true)) : []
         return (
-          <div className="lv-fg" key={account.id} role={menu ? 'none' : 'group'} aria-label={menu ? undefined : account.label}>
+          <div className="lv-fg" key={account.id} data-account-group={account.id} role={menu ? 'none' : 'group'} aria-label={menu ? undefined : account.label}>
             <GroupHead
               className="lv-fg-head"
               accountId={account.id}
@@ -222,6 +224,8 @@ interface FolderRowProps {
   icon: ReactNode
   label: string
   title?: string
+  /** `${accountId}|${path}` eines echten Ordners in der Spalte, als data-folder */
+  folderKey?: string
   /** Ungelesene, betont */
   count?: number
   /** Eine leise Gesamtzahl (Entwürfe, Markiert, Eigene Ordner) */
@@ -253,6 +257,7 @@ function FolderRow(props: FolderRowProps) {
       data-drop={target.state ?? undefined}
       data-dim={dim || undefined}
       data-spring={target.springing || undefined}
+      data-folder={props.folderKey}
       className={props.more ? 'lv-fi lv-fi--more' : 'lv-fi'}
       role={props.menu ? 'menuitem' : undefined}
       tabIndex={props.menu ? -1 : undefined}

@@ -732,6 +732,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Entwuerfe: "An" vor dem Empfaenger; was fehlt, steht leise da (Kein Empfänger, Kein Betreff). */
+.lv-r-pre {
+  margin-right: 4px;
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.lv-none {
+  color: var(--ink-3);
+  font-weight: 400;
+}
 .lv-r-cnt {
   flex: none;
   min-width: 18px;
@@ -1257,77 +1267,65 @@
   }
 }
 
-/* Der Geist folgt dem Zeiger um +18/+12 px. */
-.lv-ghost {
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 90;
-  width: 260px;
-  pointer-events: none;
-}
-.lv-ghost-back {
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 52px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  transform: translate(6px, 6px);
-  opacity: 0.85;
-}
-.lv-ghost-card {
+/* Briefchen (docs/design/liste v4): ein kleines Mail-Symbol statt der Zeile. Beim Ziehen haengt es
+   +12/+10 px am Zeiger und folgt mit leichtem Nachlauf; im Flug setzt listMotion.ts den Weg. */
+.lv-env {
   position: relative;
-  height: 52px;
-  border-radius: 10px;
+  width: 40px;
+  height: 30px;
+  border-radius: 8px;
   background: var(--surface);
   border: 1px solid var(--line-strong);
   box-shadow: var(--shadow-pop);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  padding: 0 14px;
-}
-.lv-ghost-card b {
-  font: 600 13px/1.2 var(--sans);
   color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: grid;
+  place-items: center;
 }
-.lv-ghost-card > span:not(.lv-ghost-cnt) {
-  font-size: 12px;
-  line-height: 1.2;
-  color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.lv-ghost-cnt {
+.lv-env-cnt {
   position: absolute;
   top: -9px;
-  right: -9px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
+  right: -10px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
   border-radius: 999px;
   background: var(--accent);
   color: var(--on-accent);
-  font: 700 12px/22px var(--sans);
+  font: 700 11.5px/20px var(--sans);
   text-align: center;
   font-variant-numeric: tabular-nums;
   box-shadow: 0 0 0 2px var(--paper);
 }
-.lv-ghost[data-refused] .lv-ghost-card {
-  border-color: var(--line);
-  opacity: 0.85;
+.lv-env-drag,
+.lv-env-fly {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 90;
+  pointer-events: none;
 }
-.lv-ghost[data-refused] .lv-ghost-cnt {
+.lv-env-drag {
+  transition: transform 120ms var(--ease);
+}
+.lv-env-drag > .lv-env {
+  transform: rotate(-8deg);
+  animation: lv-env-pop 140ms var(--ease);
+}
+@keyframes lv-env-pop {
+  from {
+    transform: rotate(-8deg) scale(0.75);
+    opacity: 0.8;
+  }
+}
+.lv-env-drag[data-refused] .lv-env {
+  color: var(--ink-3);
+  border-color: var(--line);
+}
+.lv-env-drag[data-refused] .lv-env-cnt {
   background: var(--surface-3);
   color: var(--ink-2);
 }
-.lv-ghost-note {
+.lv-env-note {
   margin-top: 14px;
   display: inline-block;
   background: var(--ink);
@@ -1335,12 +1333,116 @@
   font: 500 12px/1.35 var(--sans);
   padding: 7px 9px;
   border-radius: 6px;
+  width: max-content;
   max-width: 260px;
 }
-
 @media (prefers-reduced-motion: reduce) {
   .lv-fi[data-spring]::after,
-  .lv-fg-head[data-spring]::after {
+  .lv-fg-head[data-spring]::after,
+  .lv-env-drag > .lv-env {
     animation: none;
+  }
+  .lv-env-drag {
+    transition: none;
+  }
+}
+
+/* Papierkorb beim Hovern (docs/design/liste v3): die ganze Zeile rutscht 72 px nach links und
+   gibt am rechten Rand die Papierkorb-Flaeche frei. Die Zeile behaelt ihre Hoehe, sonst bewegt sich nichts. */
+.lv-r[data-del] {
+  overflow: hidden;
+}
+.lv-r[data-del] > :not(.lv-r-del, .lv-r-delzone) {
+  transition: transform 220ms var(--ease);
+}
+/* Unsichtbarer Streifen am rechten Rand: nur dort faehrt der Papierkorb heraus. */
+.lv-r-delzone {
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: 1;
+  width: 72px;
+}
+.lv-r-del {
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: 2;
+  width: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font: 600 11px/1 var(--sans);
+  cursor: pointer;
+  transform: translateX(100%);
+  transition:
+    transform 220ms var(--ease),
+    background-color 120ms linear,
+    color 120ms linear;
+}
+.lv-r-del:active {
+  filter: brightness(0.92);
+}
+.lv-r-del:focus-visible {
+  transform: none;
+  outline: 2px solid var(--focus);
+  outline-offset: -3px;
+}
+@media (hover: hover) {
+  .lv-r[data-del]:has(.lv-r-delzone:hover, .lv-r-del:hover) > :not(.lv-r-del, .lv-r-delzone) {
+    transform: translateX(-72px);
+  }
+  .lv-r[data-del]:has(.lv-r-delzone:hover, .lv-r-del:hover) .lv-r-del {
+    transform: none;
+  }
+  .lv-r-del:hover {
+    background: var(--danger);
+    color: var(--paper);
+  }
+  .lv-r-del:hover svg {
+    animation: icon-wobble 460ms var(--ease) 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lv-r[data-del] > :not(.lv-r-del, .lv-r-delzone),
+  .lv-r-del {
+    transition: none;
+  }
+}
+
+/* Zeilen, die gehen: der Inhalt blendet in 120 ms aus, in den Papierkorb mit rotem Hauch; das Zuklappen
+   (200 ms) setzt listMotion.ts. Mit weniger Bewegung blendet die ganze Zeile nur aus. */
+.lv-r[data-leaving] {
+  overflow: hidden;
+  pointer-events: none;
+}
+.lv-r[data-leaving='trash'] {
+  background: var(--danger-soft);
+}
+/* Mit [data-del] im Selektor, damit die Uebergaenge des Papierkorbs (v3, oben) das Ausblenden nicht verdraengen. */
+.lv-r[data-leaving] > *,
+.lv-r[data-leaving][data-del] > * {
+  opacity: 0;
+  transition:
+    opacity 120ms linear,
+    transform 220ms var(--ease);
+}
+/* Hebt ein Briefchen von der Zeile ab, wartet sie die 90 ms des Abhebens ab. */
+.lv-r[data-lift] > *,
+.lv-r[data-lift][data-del] > * {
+  transition-delay: 90ms, 0ms;
+}
+.lv-r[data-lift][data-leaving='trash'] {
+  transition-delay: 90ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lv-r[data-leaving] {
+    opacity: 0;
+    transition: opacity 120ms linear;
   }
 }

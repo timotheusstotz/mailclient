@@ -85,6 +85,16 @@ export function upcomingTime(ms: number, now = new Date()): string {
   return dateTimeFmt.format(date)
 }
 
+/** Wann ein Entwurf gespeichert wurde: "heute, 14:02", "gestern, 14:02", sonst "18. Nov., 14:02". */
+export function savedDay(ms: number, now = new Date()): string {
+  const date = new Date(ms)
+  const dayStart = (d: Date): number => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const days = Math.round((dayStart(now) - dayStart(date)) / 86_400_000)
+  if (days === 0) return `heute, ${timeFmt.format(date)}`
+  if (days === 1) return `gestern, ${timeFmt.format(date)}`
+  return dateTimeFmt.format(date)
+}
+
 /** Etikett einer zurückgestellten Mail in der Liste: "bis 18:00", "bis Mo., 08:00", "bis 23. Nov., 08:00". */
 export function snoozeTag(ms: number, now = new Date()): string {
   const date = new Date(ms)
@@ -117,11 +127,11 @@ export function formatAddressFull(a: Address): string {
 }
 
 /**
- * Wen die Liste zeigt: bei Gesendet und Entwuerfen interessiert der Empfaenger,
- * sonst der Absender.
+ * Wen die Liste zeigt: in Gesendet interessiert der Empfaenger, sonst der
+ * Absender. Entwuerfe zeigt die Zeile selbst ("An" und der erste Empfaenger).
  */
 export function listPartner(msg: MessageSummary, folderRole?: string): string {
-  if (folderRole === 'sent' || folderRole === 'drafts') {
+  if (folderRole === 'sent') {
     return msg.to.length ? addressList(msg.to, 2) : 'Kein Empfänger'
   }
   return displayName(msg.from[0])
